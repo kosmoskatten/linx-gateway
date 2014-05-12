@@ -3,6 +3,12 @@ module GatewayProperties
        ) where
 
 import Test.QuickCheck
+import Network.Linx.Gateway
 
-prop_messageCodes :: Bool
-prop_messageCodes = True
+instance Arbitrary MessageCode where
+  arbitrary = elements [ InterfaceRequest
+                       , InterfaceReply
+                       ]
+
+prop_messageCodes :: MessageCode -> Bool
+prop_messageCodes code = code == (decode . encode) code
