@@ -12,6 +12,18 @@ instance Arbitrary MessageCode where
                        , CreateReply
                        , DestroyRequest
                        , DestroyReply
+                       , SendRequest
+                       , SendReply
+                       , ReceiveRequest
+                       , ReceiveReply
+                       , HuntRequest
+                       , HuntReply
+                       , AttachRequest
+                       , AttachReply
+                       , DetachRequest
+                       , DetachReply
+                       , NameRequest
+                       , NameReply
                        ]
 
 prop_messageCodes :: MessageCode -> Bool
