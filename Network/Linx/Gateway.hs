@@ -2,6 +2,7 @@ module Network.Linx.Gateway
        ( MessageCode (..)
        , Version (..)
        , Endianess (..)
+       , Status (..)
        , encode
        , decode
        ) where
@@ -43,6 +44,12 @@ data Version =
 data Endianess =
     BigEndian
   | LittleEndian
+  deriving (Show, Eq)
+           
+-- | Status of an request to the gateway server.
+data Status =
+    Error
+  | Success
   deriving (Show, Eq)
            
 -- | Binary instance for 'MessageCode'.
@@ -107,6 +114,17 @@ instance Binary Endianess where
       0          -> return BigEndian
       0x80000000 -> return LittleEndian
       _          -> error "Unexpected endianess"
+
+-- | Binary instance for 'Status'.
+instance Binary Status where
+  put Error   = putInt32 (-1)
+  put Success = putInt32 0
+  get         = do
+    value <- get :: Get Int32
+    case value of
+      (-1) -> return Error
+      0    -> return Success
+      _    -> error "Unexpected status value"
 
 putInt32 :: Int32 -> Put
 putInt32 = put
