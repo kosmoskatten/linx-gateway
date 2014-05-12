@@ -1,11 +1,14 @@
 module Network.Linx.Gateway
        ( MessageCode (..)
+       , Version (..)
+       , Endianess (..)
        , encode
        , decode
        ) where
 
 import Data.Binary
 import Data.Int (Int32)
+import Data.Word (Word32)
 
 -- | Message codes describing the identities for requests and
 -- replies. Not implementing codes marked as 'Not used' in the
@@ -29,6 +32,17 @@ data MessageCode =
   | DetachReply
   | NameRequest
   | NameReply
+  deriving (Show, Eq)
+           
+-- | Protocol version. The currently only supported version is '100'.
+data Version = 
+  Version100           
+  deriving (Show, Eq)
+           
+-- | Endianess.           
+data Endianess =
+    BigEndian
+  | LittleEndian
   deriving (Show, Eq)
            
 -- | Binary instance for 'MessageCode'.
@@ -74,5 +88,28 @@ instance Binary MessageCode where
       22 -> return NameReply
       _  -> error "Unexpected binary message code"
       
+-- | Binary instance for 'Version'.
+instance Binary Version where
+  put Version100 = putInt32 100
+  get            = do
+    value <- get :: Get Int32
+    case value of
+      100 -> return Version100
+      _   -> error "Unexpected binary version tag"
+
+-- | Binary instance for 'Endianess'.
+instance Binary Endianess where
+  put BigEndian    = putWord32 0
+  put LittleEndian = putWord32 0x80000000
+  get              = do
+    value <- get :: Get Word32
+    case value of
+      0          -> return BigEndian
+      0x80000000 -> return LittleEndian
+      _          -> error "Unexpected endianess"
+
 putInt32 :: Int32 -> Put
 putInt32 = put
+
+putWord32 :: Word32 -> Put
+putWord32 = put
