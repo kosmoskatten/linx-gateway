@@ -1,32 +1,30 @@
-module GatewayProperties
-       ( prop_messageCodes
-       , prop_version
-       , prop_endianess
-       , prop_status
-       ) where
+module GatewayProperties where
 
+import Control.Applicative ((<$>), (<*>))
+import Data.Binary
+import qualified Data.ByteString.Lazy as LBS
 import Test.QuickCheck hiding (Success)
 import Network.Linx.Gateway
 
 instance Arbitrary MessageCode where
-  arbitrary = elements [ InterfaceRequest
-                       , InterfaceReply
-                       , CreateRequest
-                       , CreateReply
-                       , DestroyRequest
-                       , DestroyReply
-                       , SendRequest
-                       , SendReply
-                       , ReceiveRequest
-                       , ReceiveReply
-                       , HuntRequest
-                       , HuntReply
-                       , AttachRequest
-                       , AttachReply
-                       , DetachRequest
-                       , DetachReply
-                       , NameRequest
-                       , NameReply
+  arbitrary = elements [ InterfaceRequestOp
+                       , InterfaceReplyOp
+                       , CreateRequestOp
+                       , CreateReplyOp
+                       , DestroyRequestOp
+                       , DestroyReplyOp
+                       , SendRequestOp
+                       , SendReplyOp
+                       , ReceiveRequestOp
+                       , ReceiveReplyOp
+                       , HuntRequestOp
+                       , HuntReplyOp
+                       , AttachRequestOp
+                       , AttachReplyOp
+                       , DetachRequestOp
+                       , DetachReplyOp
+                       , NameRequestOp
+                       , NameReplyOp
                        ]
               
 instance Arbitrary Version where
@@ -37,6 +35,18 @@ instance Arbitrary Endianess where
 
 instance Arbitrary Status where
   arbitrary = elements [ Error, Success ]
+
+instance Arbitrary InterfaceRequest where
+  arbitrary = InterfaceRequest <$> arbitrary <*> arbitrary
+
+instance (Arbitrary a, Binary a, Payload a) => Arbitrary (Message a) where
+  arbitrary = toMessage `fmap` arbitrary
+
+data MyMaybe a = MyNothing | MyJust a
+               deriving (Show, Eq)
+
+instance (Arbitrary a, Num a) => Arbitrary (MyMaybe a) where
+  arbitrary = MyJust `fmap` arbitrary
 
 prop_messageCodes :: MessageCode -> Bool
 prop_messageCodes code = code == (decode . encode) code
@@ -49,3 +59,13 @@ prop_endianess endianess = endianess == (decode . encode) endianess
 
 prop_status :: Status -> Bool
 prop_status status = status == (decode . encode) status
+
+prop_message :: Binary a => MessageCode -> Message a -> Bool
+prop_message expectedCode message@(Message code size payload) =  
+  let codedPayload = encode payload
+  in expectedCode == code
+     && LBS.length codedPayload == fromIntegral size
+--     && message == (decode . encode) message
+
+prop_messageInterfaceRequest :: Message InterfaceRequest -> Bool
+prop_messageInterfaceRequest = prop_message InterfaceRequestOp
