@@ -58,17 +58,18 @@ data Status =
            
 -- | A serializable Linx message.           
 data Message = 
-  Message !MessageCode !Word32 !ProtocolPayload
+  Message !MessageCode !Int32 !ProtocolPayload
   deriving (Show, Eq)
            
 -- | Payload typeclass to pick message code and byte length for a
 -- serialized protocol payload.
 class Payload a where
   messageCode :: a -> MessageCode
-  payloadSize :: a -> Word32
+  payloadSize :: a -> Int32
 
 data ProtocolPayload =
-  InterfaceRequest !Version !Endianess
+    InterfaceRequest !Version !Endianess
+  | InterfaceReply !Status !Version !Endianess !Int32 ![MessageCode]
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -156,23 +157,44 @@ instance Binary Message where
     put code
     put size
     case payload of
-      InterfaceRequest version flags -> put version >> put flags
+      InterfaceRequest version flags -> 
+        put version >> put flags
+      InterfaceReply status version flags len codes ->
+        put status >> put version >> put flags >> put len >> putList codes
   
   get                             = do
-    code <- get :: Get MessageCode
-    size <- get :: Get Word32
+    code <- get
+    size <- get
     payload <- 
       case code of
         InterfaceRequestOp -> InterfaceRequest <$> get <*> get
+        
+        InterfaceReplyOp -> do
+          status <- get
+          version <- get
+          flags <- get
+          len <- get
+          codes <- getList $ fromIntegral len
+          return $ InterfaceReply status version flags len codes
+          
     return $ Message code size payload
 
 -- | Payload instance for 'ProtocolPayload'.
 instance Payload ProtocolPayload where
-  messageCode (InterfaceRequest _ _) = InterfaceRequestOp
-  payloadSize (InterfaceRequest _ _) = 8
+  messageCode (InterfaceRequest _ _)     = InterfaceRequestOp
+  messageCode (InterfaceReply _ _ _ _ _) = InterfaceReplyOp
+  
+  payloadSize (InterfaceRequest _ _)       = 8
+  payloadSize (InterfaceReply _ _ _ len _) = 16 + (len * 4)
 
 putInt32 :: Int32 -> Put
 putInt32 = put
 
 putWord32 :: Word32 -> Put
 putWord32 = put
+
+putList :: Binary a => [a] -> Put
+putList = mapM_ put
+
+getList :: Binary a => Int -> Get [a]
+getList len = sequence $ replicate len get
