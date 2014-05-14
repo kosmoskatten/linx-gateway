@@ -2,7 +2,7 @@ module GatewayProperties where
 
 import Control.Applicative ((<$>), (<*>))
 import Data.Binary
-import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import Test.QuickCheck hiding (Success)
 import Network.Linx.Gateway
 
@@ -36,13 +36,20 @@ instance Arbitrary Endianess where
 instance Arbitrary Status where
   arbitrary = elements [ Error, Success ]
 
+instance Arbitrary User where
+  arbitrary = return AlwaysZero
+
 instance Arbitrary ProtocolPayload where
-  arbitrary = oneof [ InterfaceRequest <$> arbitrary <*> arbitrary
+  arbitrary = oneof [ interfaceRequest
                     , interfaceReply
+                    , createRequest
                     ]
 
 instance Arbitrary Message where
   arbitrary = toMessage <$> arbitrary
+
+interfaceRequest :: Gen ProtocolPayload
+interfaceRequest = InterfaceRequest <$> arbitrary <*> arbitrary
 
 interfaceReply :: Gen ProtocolPayload
 interfaceReply = do
@@ -52,6 +59,13 @@ interfaceReply = do
   codes <- listOf arbitrary
   let len = fromIntegral $ length codes
   return $ InterfaceReply status version flags len codes
+
+createRequest :: Gen ProtocolPayload
+createRequest = CreateRequest <$> arbitrary <*> byteString
+
+byteString :: Gen LBS.ByteString
+byteString = 
+  LBS.pack <$> (listOf $ elements (['a'..'z']++['A'..'Z']++['0'..'9']))
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ size _) =

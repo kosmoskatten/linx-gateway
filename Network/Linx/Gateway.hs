@@ -3,6 +3,7 @@ module Network.Linx.Gateway
        , Version (..)
        , Endianess (..)
        , Status (..)
+       , User (..)
        , Message (..)
        , Payload
        , ProtocolPayload (..)
@@ -13,7 +14,10 @@ module Network.Linx.Gateway
 
 import Control.Applicative ((<$>), (<*>))
 import Data.Binary
+import Data.Binary.Put (putLazyByteString)
+import Data.Binary.Get (getLazyByteStringNul)
 import Data.Int (Int32)
+import qualified Data.ByteString.Lazy.Char8 as LBS
 
 -- | Message codes describing the identities for requests and
 -- replies. Not implementing codes marked as 'Not used' in the
@@ -56,6 +60,11 @@ data Status =
   | Success
   deriving (Show, Eq)
            
+-- | A user id when creating an instance on the gateway server.           
+data User =
+  AlwaysZero
+  deriving (Show, Eq)
+           
 -- | A serializable Linx message.           
 data Message = 
   Message !MessageCode !Int32 !ProtocolPayload
@@ -70,6 +79,7 @@ class Payload a where
 data ProtocolPayload =
     InterfaceRequest !Version !Endianess
   | InterfaceReply !Status !Version !Endianess !Int32 ![MessageCode]
+  | CreateRequest !User !LBS.ByteString
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -151,6 +161,15 @@ instance Binary Status where
       0    -> return Success
       _    -> error "Unexpected status value"
 
+-- | Binary instance for 'User'.
+instance Binary User where
+  put AlwaysZero = putInt32 0
+  get            = do
+    value <- get :: Get Int32
+    case value of
+      0 -> return AlwaysZero
+      _ -> error "Unexpected user value"
+
 -- | Binary instance for 'Message'.
 instance Binary Message where
   put (Message code size payload) = do
@@ -159,8 +178,12 @@ instance Binary Message where
     case payload of
       InterfaceRequest version flags -> 
         put version >> put flags
+        
       InterfaceReply status version flags len codes ->
         put status >> put version >> put flags >> put len >> putList codes
+        
+      CreateRequest user name ->
+        put user >> putLazyByteStringNul name
   
   get                             = do
     code <- get
@@ -177,21 +200,30 @@ instance Binary Message where
           codes <- getList $ fromIntegral len
           return $ InterfaceReply status version flags len codes
           
+        CreateRequestOp -> CreateRequest <$> get <*> getLazyByteStringNul
+          
     return $ Message code size payload
 
 -- | Payload instance for 'ProtocolPayload'.
 instance Payload ProtocolPayload where
   messageCode (InterfaceRequest _ _)     = InterfaceRequestOp
   messageCode (InterfaceReply _ _ _ _ _) = InterfaceReplyOp
+  messageCode (CreateRequest _ _)        = CreateRequestOp
   
   payloadSize (InterfaceRequest _ _)       = 8
   payloadSize (InterfaceReply _ _ _ len _) = 16 + (len * 4)
+  payloadSize (CreateRequest _ name) = 4 + (fromIntegral $ LBS.length name) + 1
 
 putInt32 :: Int32 -> Put
 putInt32 = put
 
 putWord32 :: Word32 -> Put
 putWord32 = put
+
+putLazyByteStringNul :: LBS.ByteString -> Put
+putLazyByteStringNul lbs = do
+  putLazyByteString lbs
+  putWord8 0
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
