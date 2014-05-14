@@ -56,10 +56,13 @@ data Status =
   | Success
   deriving (Show, Eq)
            
+-- | A serializable Linx message.           
 data Message = 
   Message !MessageCode !Word32 !ProtocolPayload
   deriving (Show, Eq)
            
+-- | Payload typeclass to pick message code and byte length for a
+-- serialized protocol payload.
 class Payload a where
   messageCode :: a -> MessageCode
   payloadSize :: a -> Word32
@@ -68,6 +71,8 @@ data ProtocolPayload =
   InterfaceRequest !Version !Endianess
   deriving (Show, Eq)  
 
+-- | Convert a Linx protocol payload message to a serializable
+-- message.
 toMessage :: ProtocolPayload -> Message
 toMessage m = Message (messageCode m) (payloadSize m) m
 
