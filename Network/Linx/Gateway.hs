@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
 module Network.Linx.Gateway
        ( MessageCode (..)
        , Version (..)
@@ -6,16 +5,15 @@ module Network.Linx.Gateway
        , Status (..)
        , Message (..)
        , Payload
-       , InterfaceRequest (..)
+       , ProtocolPayload (..)
        , toMessage
        , encode
        , decode
        ) where
 
+import Control.Applicative ((<$>), (<*>))
 import Data.Binary
 import Data.Int (Int32)
-import Data.Word (Word32)
-import GHC.Generics
 
 -- | Message codes describing the identities for requests and
 -- replies. Not implementing codes marked as 'Not used' in the
@@ -58,23 +56,20 @@ data Status =
   | Success
   deriving (Show, Eq)
            
-data Message a = 
-  Message { messageCode :: !MessageCode
-          , payloadSize :: !Word32
-          , payload     :: !a }
+data Message = 
+  Message !MessageCode !Word32 !ProtocolPayload
   deriving (Show, Eq)
            
 class Payload a where
-  code :: a -> MessageCode
-  size :: a -> Word32
+  messageCode :: a -> MessageCode
+  payloadSize :: a -> Word32
 
-data InterfaceRequest =
-  InterfaceRequest { version :: !Version
-                   , flags   :: !Endianess }
-  deriving (Show, Eq, Generic)  
+data ProtocolPayload =
+  InterfaceRequest !Version !Endianess
+  deriving (Show, Eq)  
 
-toMessage :: (Binary a, Payload a) => a -> Message a
-toMessage m = Message (code m) (size m) m
+toMessage :: ProtocolPayload -> Message
+toMessage m = Message (messageCode m) (payloadSize m) m
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -150,13 +145,26 @@ instance Binary Status where
       0    -> return Success
       _    -> error "Unexpected status value"
 
--- | Binary instance for 'InterfaceRequest'.
-instance Binary InterfaceRequest
+-- | Binary instance for 'Message'.
+instance Binary Message where
+  put (Message code size payload) = do
+    put code
+    put size
+    case payload of
+      InterfaceRequest version flags -> put version >> put flags
+  
+  get                             = do
+    code <- get :: Get MessageCode
+    size <- get :: Get Word32
+    payload <- 
+      case code of
+        InterfaceRequestOp -> InterfaceRequest <$> get <*> get
+    return $ Message code size payload
 
--- | Payload instance for 'InterfaceRequest'.
-instance Payload InterfaceRequest where
-  code _ = InterfaceRequestOp
-  size _ = 8
+-- | Payload instance for 'ProtocolPayload'.
+instance Payload ProtocolPayload where
+  messageCode (InterfaceRequest _ _) = InterfaceRequestOp
+  payloadSize (InterfaceRequest _ _) = 8
 
 putInt32 :: Int32 -> Put
 putInt32 = put
