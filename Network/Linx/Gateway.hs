@@ -13,6 +13,7 @@ module Network.Linx.Gateway
        ) where
 
 import Control.Applicative ((<$>), (<*>))
+import Control.Monad (replicateM)
 import Data.Binary
 import Data.Binary.Put (putLazyByteString)
 import Data.Binary.Get (getLazyByteStringNul)
@@ -229,4 +230,4 @@ putList :: Binary a => [a] -> Put
 putList = mapM_ put
 
 getList :: Binary a => Int -> Get [a]
-getList len = sequence $ replicate len get
+getList len = replicateM len get

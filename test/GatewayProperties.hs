@@ -65,7 +65,7 @@ createRequest = CreateRequest <$> arbitrary <*> byteString
 
 byteString :: Gen LBS.ByteString
 byteString = 
-  LBS.pack <$> (listOf $ elements (['a'..'z']++['A'..'Z']++['0'..'9']))
+  LBS.pack <$> listOf (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ size _) =
