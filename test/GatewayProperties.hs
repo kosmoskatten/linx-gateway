@@ -2,6 +2,7 @@ module GatewayProperties where
 
 import Control.Applicative ((<$>), (<*>))
 import Data.Binary
+import Data.Int
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Test.QuickCheck hiding (Success)
 import Network.Linx.Gateway
@@ -43,6 +44,7 @@ instance Arbitrary ProtocolPayload where
   arbitrary = oneof [ interfaceRequest
                     , interfaceReply
                     , createRequest
+                    , createReply
                     ]
 
 instance Arbitrary Message where
@@ -63,9 +65,15 @@ interfaceReply = do
 createRequest :: Gen ProtocolPayload
 createRequest = CreateRequest <$> arbitrary <*> byteString
 
+createReply :: Gen ProtocolPayload
+createReply = CreateReply <$> arbitrary <*> int32 <*> int32
+
 byteString :: Gen LBS.ByteString
 byteString = 
   LBS.pack <$> listOf (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
+  
+int32 :: Gen Int32
+int32 = choose (0, maxBound)
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ size _) =

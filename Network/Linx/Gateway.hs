@@ -81,6 +81,7 @@ data ProtocolPayload =
     InterfaceRequest !Version !Endianess
   | InterfaceReply !Status !Version !Endianess !Int32 ![MessageCode]
   | CreateRequest !User !LBS.ByteString
+  | CreateReply !Status !Int32 !Int32
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -185,6 +186,9 @@ instance Binary Message where
         
       CreateRequest user name ->
         put user >> putLazyByteStringNul name
+        
+      CreateReply status pid sigSize ->
+        put status >> put pid >> put sigSize
   
   get                             = do
     code <- get
@@ -202,6 +206,7 @@ instance Binary Message where
           return $ InterfaceReply status version flags len codes
           
         CreateRequestOp -> CreateRequest <$> get <*> getLazyByteStringNul
+        CreateReplyOp -> CreateReply <$> get <*> get <*> get
           
     return $ Message code size payload
 
@@ -210,10 +215,12 @@ instance Payload ProtocolPayload where
   messageCode (InterfaceRequest _ _)     = InterfaceRequestOp
   messageCode (InterfaceReply _ _ _ _ _) = InterfaceReplyOp
   messageCode (CreateRequest _ _)        = CreateRequestOp
+  messageCode (CreateReply _ _ _)        = CreateReplyOp
   
   payloadSize (InterfaceRequest _ _)       = 8
   payloadSize (InterfaceReply _ _ _ len _) = 16 + (len * 4)
   payloadSize (CreateRequest _ name) = 4 + (fromIntegral $ LBS.length name) + 1
+  payloadSize (CreateReply _ _ _) = 12
 
 putInt32 :: Int32 -> Put
 putInt32 = put
