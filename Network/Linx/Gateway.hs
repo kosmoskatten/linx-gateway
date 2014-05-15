@@ -194,47 +194,33 @@ instance Binary Message where
     put code
     put size
     case payload of
-      InterfaceRequest version flags -> put version >> put flags        
+      InterfaceRequest version flags                -> put version >> put flags 
       InterfaceReply status version flags len codes ->
         put status >> put version >> put flags >> put len >> putList codes
-      CreateRequest user name -> put user >> putLazyByteStringNul name        
-      CreateReply status pid sigSize -> put status >> put pid >> put sigSize
-      DestroyRequest pid -> put pid
-      DestroyReply status -> put status
+      CreateRequest user name                       -> 
+        put user >> putLazyByteStringNul name        
+      CreateReply status pid sigSize                -> 
+        put status >> put pid >> put sigSize        
+      DestroyRequest pid                            -> put pid      
+      DestroyReply status                           -> put status      
       SendRequest fromPid destPid len sigNo sigData ->
         put fromPid >> put destPid >> put len 
                     >> put sigNo >> putLazyByteString sigData
-      SendReply status -> put status
+      SendReply status                              -> put status
   
   get                             = do
     code <- get
     size <- get
     payload <- 
       case code of
-        InterfaceRequestOp -> InterfaceRequest <$> get <*> get
-        
-        InterfaceReplyOp -> do
-          status <- get
-          version <- get
-          flags <- get
-          len <- get
-          codes <- getList $ fromIntegral len
-          return $ InterfaceReply status version flags len codes
-          
-        CreateRequestOp -> CreateRequest <$> get <*> getLazyByteStringNul
-        CreateReplyOp -> CreateReply <$> get <*> get <*> get
-        DestroyRequestOp -> DestroyRequest <$> get
-        DestroyReplyOp -> DestroyReply <$> get
-        
-        SendRequestOp -> do
-          fromPid <- get
-          destPid <- get
-          sigLen <- get :: Get Int32
-          sigNo <- get
-          sigData <- getLazyByteString (fromIntegral $ sigLen - 4)
-          return $ mkSendRequest fromPid destPid sigNo sigData
-          
-        SendReplyOp -> mkSendReply <$> get
+        InterfaceRequestOp -> InterfaceRequest <$> get <*> get      
+        InterfaceReplyOp   -> getInterfaceReply                    
+        CreateRequestOp    -> CreateRequest <$> get <*> getLazyByteStringNul
+        CreateReplyOp      -> CreateReply <$> get <*> get <*> get
+        DestroyRequestOp   -> DestroyRequest <$> get
+        DestroyReplyOp     -> DestroyReply <$> get        
+        SendRequestOp      -> getSendRequest                    
+        SendReplyOp        -> mkSendReply <$> get
           
     return $ Message code size payload
 
@@ -274,3 +260,21 @@ putList = mapM_ put
 
 getList :: Binary a => Int -> Get [a]
 getList len = replicateM len get
+
+getInterfaceReply :: Get ProtocolPayload
+getInterfaceReply = do
+  status <- get
+  version <- get
+  flags <- get
+  len <- get
+  codes <- getList $ fromIntegral len
+  return $ InterfaceReply status version flags len codes
+
+getSendRequest :: Get ProtocolPayload
+getSendRequest = do
+  fromPid <- get
+  destPid <- get
+  sigLen <- get :: Get Int32
+  sigNo <- get
+  sigData <- getLazyByteString (fromIntegral $ sigLen - 4)
+  return $ mkSendRequest fromPid destPid sigNo sigData
