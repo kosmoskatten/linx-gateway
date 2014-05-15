@@ -1,6 +1,6 @@
 module GatewayProperties where
 
-import Control.Applicative ((<$>), (<*>))
+import Control.Applicative ((<$>), (<*>), pure)
 import Data.Binary
 import Data.Int
 import qualified Data.ByteString.Lazy.Char8 as LBS
@@ -39,6 +39,11 @@ instance Arbitrary Status where
 
 instance Arbitrary User where
   arbitrary = return AlwaysZero
+
+instance Arbitrary Timeout where
+  arbitrary = oneof [ pure Infinity
+                    , Wait <$> int32
+                    ]
 
 instance Arbitrary ProtocolPayload where
   arbitrary = oneof [ interfaceRequest

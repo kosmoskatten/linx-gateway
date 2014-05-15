@@ -4,6 +4,7 @@ module Network.Linx.Gateway
        , Endianess (..)
        , Status (..)
        , User (..)
+       , Timeout (..)
        , Message (..)
        , Payload
        , ProtocolPayload (..)
@@ -68,6 +69,12 @@ data User =
   AlwaysZero
   deriving (Show, Eq)
            
+-- | A timeout value expressed in milli-seconds.
+data Timeout =
+    Wait !Int32
+  | Infinity
+  deriving (Show, Eq)
+
 -- | A serializable Linx message.           
 data Message = 
   Message !MessageCode !Int32 !ProtocolPayload
@@ -187,6 +194,16 @@ instance Binary User where
     case value of
       0 -> return AlwaysZero
       _ -> error "Unexpected user value"
+
+-- | Binary instance for 'Timeout'.
+instance Binary Timeout where
+  put Infinity    = putInt32 (-1)
+  put (Wait time) = putInt32 time
+  get           = do
+    value <- get :: Get Int32
+    case value of
+      (-1) -> return Infinity
+      _    -> return $ Wait value
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
