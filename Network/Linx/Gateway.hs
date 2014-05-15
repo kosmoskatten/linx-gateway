@@ -82,6 +82,8 @@ data ProtocolPayload =
   | InterfaceReply !Status !Version !Endianess !Int32 ![MessageCode]
   | CreateRequest !User !LBS.ByteString
   | CreateReply !Status !Int32 !Int32
+  | DestroyRequest !Int32
+  | DestroyReply !Status
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -178,17 +180,13 @@ instance Binary Message where
     put code
     put size
     case payload of
-      InterfaceRequest version flags -> 
-        put version >> put flags
-        
+      InterfaceRequest version flags -> put version >> put flags        
       InterfaceReply status version flags len codes ->
         put status >> put version >> put flags >> put len >> putList codes
-        
-      CreateRequest user name ->
-        put user >> putLazyByteStringNul name
-        
-      CreateReply status pid sigSize ->
-        put status >> put pid >> put sigSize
+      CreateRequest user name -> put user >> putLazyByteStringNul name        
+      CreateReply status pid sigSize -> put status >> put pid >> put sigSize
+      DestroyRequest pid -> put pid
+      DestroyReply status -> put status
   
   get                             = do
     code <- get
@@ -207,6 +205,8 @@ instance Binary Message where
           
         CreateRequestOp -> CreateRequest <$> get <*> getLazyByteStringNul
         CreateReplyOp -> CreateReply <$> get <*> get <*> get
+        DestroyRequestOp -> DestroyRequest <$> get
+        DestroyReplyOp -> DestroyReply <$> get
           
     return $ Message code size payload
 
@@ -216,11 +216,15 @@ instance Payload ProtocolPayload where
   messageCode (InterfaceReply _ _ _ _ _) = InterfaceReplyOp
   messageCode (CreateRequest _ _)        = CreateRequestOp
   messageCode (CreateReply _ _ _)        = CreateReplyOp
+  messageCode (DestroyRequest _)         = DestroyRequestOp
+  messageCode (DestroyReply _)           = DestroyReplyOp
   
   payloadSize (InterfaceRequest _ _)       = 8
   payloadSize (InterfaceReply _ _ _ len _) = 16 + (len * 4)
   payloadSize (CreateRequest _ name) = 4 + (fromIntegral $ LBS.length name) + 1
   payloadSize (CreateReply _ _ _) = 12
+  payloadSize (DestroyRequest _) = 4
+  payloadSize (DestroyReply _) = 4
 
 putInt32 :: Int32 -> Put
 putInt32 = put

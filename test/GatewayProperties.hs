@@ -45,6 +45,8 @@ instance Arbitrary ProtocolPayload where
                     , interfaceReply
                     , createRequest
                     , createReply
+                    , destroyRequest
+                    , destroyReply
                     ]
 
 instance Arbitrary Message where
@@ -67,6 +69,12 @@ createRequest = CreateRequest <$> arbitrary <*> byteString
 
 createReply :: Gen ProtocolPayload
 createReply = CreateReply <$> arbitrary <*> int32 <*> int32
+
+destroyRequest :: Gen ProtocolPayload
+destroyRequest = DestroyRequest <$> int32
+
+destroyReply :: Gen ProtocolPayload
+destroyReply = DestroyReply <$> arbitrary
 
 byteString :: Gen LBS.ByteString
 byteString = 
