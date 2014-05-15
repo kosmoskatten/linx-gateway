@@ -47,6 +47,7 @@ instance Arbitrary ProtocolPayload where
                     , createReply
                     , destroyRequest
                     , destroyReply
+                    , sendRequest
                     ]
 
 instance Arbitrary Message where
@@ -76,9 +77,12 @@ destroyRequest = DestroyRequest <$> int32
 destroyReply :: Gen ProtocolPayload
 destroyReply = DestroyReply <$> arbitrary
 
+sendRequest :: Gen ProtocolPayload
+sendRequest = mkSendRequest <$> int32 <*> int32 <*> int32 <*> byteString
+
 byteString :: Gen LBS.ByteString
 byteString = 
-  LBS.pack <$> listOf (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
+  LBS.pack <$> listOf1 (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
   
 int32 :: Gen Int32
 int32 = choose (0, maxBound)
