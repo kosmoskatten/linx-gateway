@@ -48,6 +48,7 @@ instance Arbitrary ProtocolPayload where
                     , destroyRequest
                     , destroyReply
                     , sendRequest
+                    , sendReply
                     ]
 
 instance Arbitrary Message where
@@ -79,6 +80,9 @@ destroyReply = DestroyReply <$> arbitrary
 
 sendRequest :: Gen ProtocolPayload
 sendRequest = mkSendRequest <$> int32 <*> int32 <*> int32 <*> byteString
+
+sendReply :: Gen ProtocolPayload
+sendReply = mkSendReply <$> arbitrary
 
 byteString :: Gen LBS.ByteString
 byteString = 

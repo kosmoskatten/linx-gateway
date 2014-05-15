@@ -9,6 +9,7 @@ module Network.Linx.Gateway
        , ProtocolPayload (..)
        , toMessage
        , mkSendRequest
+       , mkSendReply
        , encode
        , decode
        ) where
@@ -86,6 +87,7 @@ data ProtocolPayload =
   | DestroyRequest !Int32
   | DestroyReply !Status
   | SendRequest !Int32 !Int32 !Int32 !Int32 !LBS.ByteString
+  | SendReply !Status
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -98,6 +100,10 @@ mkSendRequest :: Int32 -> Int32 -> Int32 -> LBS.ByteString -> ProtocolPayload
 mkSendRequest fromPid destPid sigNo sigData =
   let sigLen = 4 + (fromIntegral $ LBS.length sigData)
   in SendRequest fromPid destPid sigLen sigNo sigData
+     
+-- | Create a SendReply protocol payload
+mkSendReply :: Status -> ProtocolPayload
+mkSendReply = SendReply
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -198,6 +204,7 @@ instance Binary Message where
       SendRequest fromPid destPid len sigNo sigData ->
         put fromPid >> put destPid >> put len 
                     >> put sigNo >> putLazyByteString sigData
+      SendReply status -> put status
   
   get                             = do
     code <- get
@@ -227,6 +234,8 @@ instance Binary Message where
           sigData <- getLazyByteString (fromIntegral $ sigLen - 4)
           return $ mkSendRequest fromPid destPid sigNo sigData
           
+        SendReplyOp -> mkSendReply <$> get
+          
     return $ Message code size payload
 
 -- | Payload instance for 'ProtocolPayload'.
@@ -238,6 +247,7 @@ instance Payload ProtocolPayload where
   messageCode (DestroyRequest _)         = DestroyRequestOp
   messageCode (DestroyReply _)           = DestroyReplyOp
   messageCode (SendRequest _ _ _ _ _)    = SendRequestOp
+  messageCode (SendReply _)              = SendReplyOp
   
   payloadSize (InterfaceRequest _ _)       = 8
   payloadSize (InterfaceReply _ _ _ len _) = 16 + (len * 4)
@@ -246,6 +256,7 @@ instance Payload ProtocolPayload where
   payloadSize (DestroyRequest _) = 4
   payloadSize (DestroyReply _) = 4
   payloadSize (SendRequest _ _ len _ _) = 12 + len
+  payloadSize (SendReply _) = 4
 
 putInt32 :: Int32 -> Put
 putInt32 = put
