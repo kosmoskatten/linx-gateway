@@ -87,7 +87,7 @@ createReply :: Gen ProtocolPayload
 createReply = CreateReply <$> arbitrary <*> arbitrary <*> arbitrary
 
 destroyRequest :: Gen ProtocolPayload
-destroyRequest = DestroyRequest <$> int32
+destroyRequest = DestroyRequest <$> arbitrary
 
 destroyReply :: Gen ProtocolPayload
 destroyReply = DestroyReply <$> arbitrary

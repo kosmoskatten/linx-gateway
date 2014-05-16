@@ -111,7 +111,7 @@ data ProtocolPayload =
   | InterfaceReply !Status !Version !Endianess !Length ![MessageCode]
   | CreateRequest !User !CString
   | CreateReply !Status !Pid !Length
-  | DestroyRequest !Int32
+  | DestroyRequest !Pid
   | DestroyReply !Status
   | SendRequest !Int32 !Int32 !Int32 !Int32 !LBS.ByteString
   | SendReply !Status
