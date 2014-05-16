@@ -56,6 +56,15 @@ instance Arbitrary ProtocolPayload where
                     , sendReply
                     ]
 
+instance Arbitrary Length where
+  arbitrary = Length <$> int32
+
+instance Arbitrary CString where
+  arbitrary = CString <$> byteString
+
+instance Arbitrary Pid where
+  arbitrary = Pid <$> int32
+
 instance Arbitrary Message where
   arbitrary = toMessage <$> arbitrary
 
@@ -72,10 +81,10 @@ interfaceReply = do
   return $ InterfaceReply status version flags len codes
 
 createRequest :: Gen ProtocolPayload
-createRequest = CreateRequest <$> arbitrary <*> cstring
+createRequest = CreateRequest <$> arbitrary <*> arbitrary
 
 createReply :: Gen ProtocolPayload
-createReply = CreateReply <$> arbitrary <*> int32 <*> int32
+createReply = CreateReply <$> arbitrary <*> arbitrary <*> arbitrary
 
 destroyRequest :: Gen ProtocolPayload
 destroyRequest = DestroyRequest <$> int32
@@ -88,9 +97,6 @@ sendRequest = mkSendRequest <$> int32 <*> int32 <*> int32 <*> byteString
 
 sendReply :: Gen ProtocolPayload
 sendReply = mkSendReply <$> arbitrary
-
-cstring :: Gen CString
-cstring = CString <$> byteString
 
 byteString :: Gen LBS.ByteString
 byteString = 

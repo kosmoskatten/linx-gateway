@@ -8,6 +8,7 @@ module Network.Linx.Gateway
        , Timeout (..)
        , Length (..)
        , CString (..)
+       , Pid (..)
        , Message (..)
        , Payload
        , ProtocolPayload (..)
@@ -89,6 +90,11 @@ newtype CString =
   CString LBS.ByteString
   deriving (Show, Eq)
 
+-- | A process identifier.
+newtype Pid =
+  Pid Int32
+  deriving (Show, Eq, Generic)
+
 -- | A serializable Linx message.           
 data Message = 
   Message !MessageCode !Length !ProtocolPayload
@@ -104,7 +110,7 @@ data ProtocolPayload =
     InterfaceRequest !Version !Endianess
   | InterfaceReply !Status !Version !Endianess !Length ![MessageCode]
   | CreateRequest !User !CString
-  | CreateReply !Status !Int32 !Int32
+  | CreateReply !Status !Pid !Length
   | DestroyRequest !Int32
   | DestroyReply !Status
   | SendRequest !Int32 !Int32 !Int32 !Int32 !LBS.ByteString
@@ -226,6 +232,9 @@ instance Binary Length
 instance Binary CString where
   put (CString lbs) = putLazyByteString lbs >> putWord8 0
   get               = CString <$> getLazyByteStringNul
+  
+-- | Binary instance for 'Pid'.
+instance Binary Pid
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
