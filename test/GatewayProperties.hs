@@ -54,6 +54,7 @@ instance Arbitrary ProtocolPayload where
                     , destroyReply
                     , sendRequest
                     , sendReply
+                    , receiveRequest
                     ]
 
 instance Arbitrary Length where
@@ -104,6 +105,9 @@ sendRequest =
 
 sendReply :: Gen ProtocolPayload
 sendReply = mkSendReply <$> arbitrary
+
+receiveRequest :: Gen ProtocolPayload
+receiveRequest = mkReceiveRequest <$> arbitrary <*> arbitrary
 
 byteString :: Gen LBS.ByteString
 byteString = 

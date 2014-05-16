@@ -17,6 +17,7 @@ module Network.Linx.Gateway
        , toMessage
        , mkSendRequest
        , mkSendReply
+       , mkReceiveRequest
        , encode
        , decode
        ) where
@@ -127,6 +128,7 @@ data ProtocolPayload =
   | DestroyReply !Status
   | SendRequest !Pid !Pid !Length !SigNo !SigData
   | SendReply !Status
+  | ReceiveRequest !Timeout !Length ![SigNo]
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -141,9 +143,15 @@ mkSendRequest from dest sigNo sigData@(SigData lbs) =
       sigLen = Length $ 4 + lbsLen -- The length includes the sigNo
   in SendRequest from dest sigLen sigNo sigData
 
--- | Create a SendReply protocol payload
+-- | Create a SendReply protocol payload.
 mkSendReply :: Status -> ProtocolPayload
 mkSendReply = SendReply
+
+-- | Create a ReceiveRequest protocol payload.
+mkReceiveRequest :: Timeout -> [SigNo] -> ProtocolPayload
+mkReceiveRequest timeout sigNos =
+  let len = Length $ fromIntegral (length sigNos)
+  in ReceiveRequest timeout len sigNos
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -271,6 +279,8 @@ instance Binary Message where
         put from >> put dest >> put len >> put sigNo 
                  >> putLazyByteString lbs
       SendReply status                              -> put status
+      ReceiveRequest timeout len sigNos             ->
+        put timeout >> put len >> putList sigNos
   
   get                             = do
     code <- get
@@ -285,6 +295,7 @@ instance Binary Message where
         DestroyReplyOp     -> DestroyReply <$> get        
         SendRequestOp      -> getSendRequest                    
         SendReplyOp        -> mkSendReply <$> get
+        ReceiveRequestOp   -> getReceiveRequest
           
     return $ Message code size payload
 
@@ -298,6 +309,7 @@ instance Payload ProtocolPayload where
   messageCode (DestroyReply _)           = DestroyReplyOp
   messageCode (SendRequest _ _ _ _ _)    = SendRequestOp
   messageCode (SendReply _)              = SendReplyOp
+  messageCode (ReceiveRequest _ _ _)     = ReceiveRequestOp
   
   payloadSize (InterfaceRequest _ _)       = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _) = Length $ 16 + (len * 4)
@@ -308,6 +320,7 @@ instance Payload ProtocolPayload where
   payloadSize (DestroyReply _) = Length 4
   payloadSize (SendRequest _ _ (Length len) _ _) = Length $ 12 + len
   payloadSize (SendReply _) = Length 4
+  payloadSize (ReceiveRequest _ (Length len) _) = Length $ 8 + (len * 4)
 
 putInt32 :: Int32 -> Put
 putInt32 = put
@@ -338,3 +351,10 @@ getSendRequest = do
   sigNo <- get
   sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
   return $ mkSendRequest from dest sigNo sigData
+
+getReceiveRequest :: Get ProtocolPayload
+getReceiveRequest = do
+  timeout <- get
+  len <- get
+  sigNos <- getList len
+  return $ ReceiveRequest timeout len sigNos
