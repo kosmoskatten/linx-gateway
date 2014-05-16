@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 module Network.Linx.Gateway
        ( MessageCode (..)
        , Version (..)
@@ -5,6 +6,7 @@ module Network.Linx.Gateway
        , Status (..)
        , User (..)
        , Timeout (..)
+       , ListLength (..)
        , Message (..)
        , Payload
        , ProtocolPayload (..)
@@ -22,6 +24,7 @@ import Data.Binary.Put (putLazyByteString)
 import Data.Binary.Get (getLazyByteString, getLazyByteStringNul)
 import Data.Int (Int32)
 import qualified Data.ByteString.Lazy.Char8 as LBS
+import GHC.Generics
 
 -- | Message codes describing the identities for requests and
 -- replies. Not implementing codes marked as 'Not used' in the
@@ -75,6 +78,11 @@ data Timeout =
   | Infinity
   deriving (Show, Eq)
 
+-- | Length of a list.
+newtype ListLength = 
+  ListLength Int32
+  deriving (Show, Eq, Generic)
+
 -- | A serializable Linx message.           
 data Message = 
   Message !MessageCode !Int32 !ProtocolPayload
@@ -88,7 +96,7 @@ class Payload a where
 
 data ProtocolPayload =
     InterfaceRequest !Version !Endianess
-  | InterfaceReply !Status !Version !Endianess !Int32 ![MessageCode]
+  | InterfaceReply !Status !Version !Endianess !ListLength ![MessageCode]
   | CreateRequest !User !LBS.ByteString
   | CreateReply !Status !Int32 !Int32
   | DestroyRequest !Int32
@@ -205,6 +213,9 @@ instance Binary Timeout where
       (-1) -> return Infinity
       _    -> return $ Wait value
 
+-- | Binary instance for 'ListLength'.
+instance Binary ListLength
+
 -- | Binary instance for 'Message'.
 instance Binary Message where
   put (Message code size payload) = do
@@ -253,7 +264,7 @@ instance Payload ProtocolPayload where
   messageCode (SendReply _)              = SendReplyOp
   
   payloadSize (InterfaceRequest _ _)       = 8
-  payloadSize (InterfaceReply _ _ _ len _) = 16 + (len * 4)
+  payloadSize (InterfaceReply _ _ _ (ListLength len) _) = 16 + (len * 4)
   payloadSize (CreateRequest _ name) = 4 + (fromIntegral $ LBS.length name) + 1
   payloadSize (CreateReply _ _ _) = 12
   payloadSize (DestroyRequest _) = 4
@@ -275,8 +286,8 @@ putLazyByteStringNul lbs = do
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
 
-getList :: Binary a => Int -> Get [a]
-getList len = replicateM len get
+getList :: Binary a => ListLength -> Get [a]
+getList (ListLength len) = replicateM (fromIntegral len) get
 
 getInterfaceReply :: Get ProtocolPayload
 getInterfaceReply = do
@@ -284,7 +295,7 @@ getInterfaceReply = do
   version <- get
   flags <- get
   len <- get
-  codes <- getList $ fromIntegral len
+  codes <- getList len
   return $ InterfaceReply status version flags len codes
 
 getSendRequest :: Get ProtocolPayload

@@ -68,7 +68,7 @@ interfaceReply = do
   version <- arbitrary
   flags <- arbitrary
   codes <- listOf arbitrary
-  let len = fromIntegral $ length codes
+  let len = ListLength (fromIntegral $ length codes)
   return $ InterfaceReply status version flags len codes
 
 createRequest :: Gen ProtocolPayload
