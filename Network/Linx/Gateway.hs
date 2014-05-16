@@ -85,14 +85,14 @@ newtype Length =
 
 -- | A serializable Linx message.           
 data Message = 
-  Message !MessageCode !Int32 !ProtocolPayload
+  Message !MessageCode !Length !ProtocolPayload
   deriving (Show, Eq)
            
 -- | Payload typeclass to pick message code and byte length for a
 -- serialized protocol payload.
 class Payload a where
   messageCode :: a -> MessageCode
-  payloadSize :: a -> Int32
+  payloadSize :: a -> Length
 
 data ProtocolPayload =
     InterfaceRequest !Version !Endianess
@@ -263,14 +263,15 @@ instance Payload ProtocolPayload where
   messageCode (SendRequest _ _ _ _ _)    = SendRequestOp
   messageCode (SendReply _)              = SendReplyOp
   
-  payloadSize (InterfaceRequest _ _)       = 8
-  payloadSize (InterfaceReply _ _ _ (Length len) _) = 16 + (len * 4)
-  payloadSize (CreateRequest _ name) = 4 + (fromIntegral $ LBS.length name) + 1
-  payloadSize (CreateReply _ _ _) = 12
-  payloadSize (DestroyRequest _) = 4
-  payloadSize (DestroyReply _) = 4
-  payloadSize (SendRequest _ _ len _ _) = 12 + len
-  payloadSize (SendReply _) = 4
+  payloadSize (InterfaceRequest _ _)       = Length 8
+  payloadSize (InterfaceReply _ _ _ (Length len) _) = Length $ 16 + (len * 4)
+  payloadSize (CreateRequest _ name) = 
+    Length $ 4 + (fromIntegral $ LBS.length name) + 1
+  payloadSize (CreateReply _ _ _) = Length 12
+  payloadSize (DestroyRequest _) = Length 4
+  payloadSize (DestroyReply _) = Length 4
+  payloadSize (SendRequest _ _ len _ _) = Length $ 12 + len
+  payloadSize (SendReply _) = Length 4
 
 putInt32 :: Int32 -> Put
 putInt32 = put

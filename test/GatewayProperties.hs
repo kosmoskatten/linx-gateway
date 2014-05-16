@@ -97,7 +97,7 @@ int32 :: Gen Int32
 int32 = choose (0, maxBound)
 
 prop_message :: Message -> Bool
-prop_message message@(Message _ size _) =
+prop_message message@(Message _ (Length len) _) =
   let codedMessage = encode message
-  in LBS.length codedMessage == fromIntegral (size + 8)
+  in LBS.length codedMessage == fromIntegral (len + 8)
      && message == decode codedMessage
