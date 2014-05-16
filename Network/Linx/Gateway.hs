@@ -6,7 +6,7 @@ module Network.Linx.Gateway
        , Status (..)
        , User (..)
        , Timeout (..)
-       , ListLength (..)
+       , Length (..)
        , Message (..)
        , Payload
        , ProtocolPayload (..)
@@ -79,8 +79,8 @@ data Timeout =
   deriving (Show, Eq)
 
 -- | Length of a list.
-newtype ListLength = 
-  ListLength Int32
+newtype Length = 
+  Length Int32
   deriving (Show, Eq, Generic)
 
 -- | A serializable Linx message.           
@@ -96,7 +96,7 @@ class Payload a where
 
 data ProtocolPayload =
     InterfaceRequest !Version !Endianess
-  | InterfaceReply !Status !Version !Endianess !ListLength ![MessageCode]
+  | InterfaceReply !Status !Version !Endianess !Length ![MessageCode]
   | CreateRequest !User !LBS.ByteString
   | CreateReply !Status !Int32 !Int32
   | DestroyRequest !Int32
@@ -213,8 +213,8 @@ instance Binary Timeout where
       (-1) -> return Infinity
       _    -> return $ Wait value
 
--- | Binary instance for 'ListLength'.
-instance Binary ListLength
+-- | Binary instance for 'Length'.
+instance Binary Length
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -264,7 +264,7 @@ instance Payload ProtocolPayload where
   messageCode (SendReply _)              = SendReplyOp
   
   payloadSize (InterfaceRequest _ _)       = 8
-  payloadSize (InterfaceReply _ _ _ (ListLength len) _) = 16 + (len * 4)
+  payloadSize (InterfaceReply _ _ _ (Length len) _) = 16 + (len * 4)
   payloadSize (CreateRequest _ name) = 4 + (fromIntegral $ LBS.length name) + 1
   payloadSize (CreateReply _ _ _) = 12
   payloadSize (DestroyRequest _) = 4
@@ -286,8 +286,8 @@ putLazyByteStringNul lbs = do
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
 
-getList :: Binary a => ListLength -> Get [a]
-getList (ListLength len) = replicateM (fromIntegral len) get
+getList :: Binary a => Length -> Get [a]
+getList (Length len) = replicateM (fromIntegral len) get
 
 getInterfaceReply :: Get ProtocolPayload
 getInterfaceReply = do
