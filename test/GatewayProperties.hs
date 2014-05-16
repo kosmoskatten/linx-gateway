@@ -72,7 +72,7 @@ interfaceReply = do
   return $ InterfaceReply status version flags len codes
 
 createRequest :: Gen ProtocolPayload
-createRequest = CreateRequest <$> arbitrary <*> byteString
+createRequest = CreateRequest <$> arbitrary <*> cstring
 
 createReply :: Gen ProtocolPayload
 createReply = CreateReply <$> arbitrary <*> int32 <*> int32
@@ -88,6 +88,9 @@ sendRequest = mkSendRequest <$> int32 <*> int32 <*> int32 <*> byteString
 
 sendReply :: Gen ProtocolPayload
 sendReply = mkSendReply <$> arbitrary
+
+cstring :: Gen CString
+cstring = CString <$> byteString
 
 byteString :: Gen LBS.ByteString
 byteString = 

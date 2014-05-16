@@ -7,6 +7,7 @@ module Network.Linx.Gateway
        , User (..)
        , Timeout (..)
        , Length (..)
+       , CString (..)
        , Message (..)
        , Payload
        , ProtocolPayload (..)
@@ -83,6 +84,11 @@ newtype Length =
   Length Int32
   deriving (Show, Eq, Generic)
 
+-- | A null terminated string.
+newtype CString =
+  CString LBS.ByteString
+  deriving (Show, Eq)
+
 -- | A serializable Linx message.           
 data Message = 
   Message !MessageCode !Length !ProtocolPayload
@@ -97,7 +103,7 @@ class Payload a where
 data ProtocolPayload =
     InterfaceRequest !Version !Endianess
   | InterfaceReply !Status !Version !Endianess !Length ![MessageCode]
-  | CreateRequest !User !LBS.ByteString
+  | CreateRequest !User !CString
   | CreateReply !Status !Int32 !Int32
   | DestroyRequest !Int32
   | DestroyReply !Status
@@ -216,6 +222,11 @@ instance Binary Timeout where
 -- | Binary instance for 'Length'.
 instance Binary Length
 
+-- | Binary instance for 'CString'.
+instance Binary CString where
+  put (CString lbs) = putLazyByteString lbs >> putWord8 0
+  get               = CString <$> getLazyByteStringNul
+
 -- | Binary instance for 'Message'.
 instance Binary Message where
   put (Message code size payload) = do
@@ -226,7 +237,7 @@ instance Binary Message where
       InterfaceReply status version flags len codes ->
         put status >> put version >> put flags >> put len >> putList codes
       CreateRequest user name                       -> 
-        put user >> putLazyByteStringNul name        
+        put user >> put name        
       CreateReply status pid sigSize                -> 
         put status >> put pid >> put sigSize        
       DestroyRequest pid                            -> put pid      
@@ -243,7 +254,7 @@ instance Binary Message where
       case code of
         InterfaceRequestOp -> InterfaceRequest <$> get <*> get      
         InterfaceReplyOp   -> getInterfaceReply                    
-        CreateRequestOp    -> CreateRequest <$> get <*> getLazyByteStringNul
+        CreateRequestOp    -> CreateRequest <$> get <*> get
         CreateReplyOp      -> CreateReply <$> get <*> get <*> get
         DestroyRequestOp   -> DestroyRequest <$> get
         DestroyReplyOp     -> DestroyReply <$> get        
@@ -265,7 +276,7 @@ instance Payload ProtocolPayload where
   
   payloadSize (InterfaceRequest _ _)       = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _) = Length $ 16 + (len * 4)
-  payloadSize (CreateRequest _ name) = 
+  payloadSize (CreateRequest _ (CString name)) = 
     Length $ 4 + (fromIntegral $ LBS.length name) + 1
   payloadSize (CreateReply _ _ _) = Length 12
   payloadSize (DestroyRequest _) = Length 4
@@ -278,11 +289,6 @@ putInt32 = put
 
 putWord32 :: Word32 -> Put
 putWord32 = put
-
-putLazyByteStringNul :: LBS.ByteString -> Put
-putLazyByteStringNul lbs = do
-  putLazyByteString lbs
-  putWord8 0
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
