@@ -138,7 +138,7 @@ toMessage m = Message (messageCode m) (payloadSize m) m
 mkSendRequest :: Pid -> Pid -> SigNo -> SigData -> ProtocolPayload
 mkSendRequest from dest sigNo sigData@(SigData lbs) =
   let lbsLen = fromIntegral $ LBS.length lbs
-      sigLen = Length $ 4 + lbsLen
+      sigLen = Length $ 4 + lbsLen -- The length includes the sigNo
   in SendRequest from dest sigLen sigNo sigData
 
 -- | Create a SendReply protocol payload
