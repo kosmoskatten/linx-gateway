@@ -9,6 +9,8 @@ module Network.Linx.Gateway
        , Length (..)
        , CString (..)
        , Pid (..)
+       , SigNo (..)
+       , SigData (..)
        , Message (..)
        , Payload
        , ProtocolPayload (..)
@@ -26,7 +28,7 @@ import Data.Binary.Put (putLazyByteString)
 import Data.Binary.Get (getLazyByteString, getLazyByteStringNul)
 import Data.Int (Int32)
 import qualified Data.ByteString.Lazy.Char8 as LBS
-import GHC.Generics
+import GHC.Generics (Generic)
 
 -- | Message codes describing the identities for requests and
 -- replies. Not implementing codes marked as 'Not used' in the
@@ -95,6 +97,16 @@ newtype Pid =
   Pid Int32
   deriving (Show, Eq, Generic)
 
+-- | A signal number.
+newtype SigNo =
+  SigNo Int32
+  deriving (Show, Eq, Generic)
+           
+-- | Signal data.           
+newtype SigData =
+  SigData LBS.ByteString
+  deriving (Show, Eq)
+
 -- | A serializable Linx message.           
 data Message = 
   Message !MessageCode !Length !ProtocolPayload
@@ -113,7 +125,7 @@ data ProtocolPayload =
   | CreateReply !Status !Pid !Length
   | DestroyRequest !Pid
   | DestroyReply !Status
-  | SendRequest !Int32 !Int32 !Int32 !Int32 !LBS.ByteString
+  | SendRequest !Pid !Pid !Length !SigNo !SigData
   | SendReply !Status
   deriving (Show, Eq)  
 
@@ -123,11 +135,12 @@ toMessage :: ProtocolPayload -> Message
 toMessage m = Message (messageCode m) (payloadSize m) m
 
 -- | Create a SendRequest protocol payload.
-mkSendRequest :: Int32 -> Int32 -> Int32 -> LBS.ByteString -> ProtocolPayload
-mkSendRequest fromPid destPid sigNo sigData =
-  let sigLen = 4 + (fromIntegral $ LBS.length sigData)
-  in SendRequest fromPid destPid sigLen sigNo sigData
-     
+mkSendRequest :: Pid -> Pid -> SigNo -> SigData -> ProtocolPayload
+mkSendRequest from dest sigNo sigData@(SigData lbs) =
+  let lbsLen = fromIntegral $ LBS.length lbs
+      sigLen = Length $ 4 + lbsLen
+  in SendRequest from dest sigLen sigNo sigData
+
 -- | Create a SendReply protocol payload
 mkSendReply :: Status -> ProtocolPayload
 mkSendReply = SendReply
@@ -236,6 +249,9 @@ instance Binary CString where
 -- | Binary instance for 'Pid'.
 instance Binary Pid
 
+-- | Binary instance for 'SigNo'.
+instance Binary SigNo
+
 -- | Binary instance for 'Message'.
 instance Binary Message where
   put (Message code size payload) = do
@@ -251,9 +267,9 @@ instance Binary Message where
         put status >> put pid >> put sigSize        
       DestroyRequest pid                            -> put pid      
       DestroyReply status                           -> put status      
-      SendRequest fromPid destPid len sigNo sigData ->
-        put fromPid >> put destPid >> put len 
-                    >> put sigNo >> putLazyByteString sigData
+      SendRequest from dest len sigNo (SigData lbs) ->
+        put from >> put dest >> put len >> put sigNo 
+                 >> putLazyByteString lbs
       SendReply status                              -> put status
   
   get                             = do
@@ -290,7 +306,7 @@ instance Payload ProtocolPayload where
   payloadSize (CreateReply _ _ _) = Length 12
   payloadSize (DestroyRequest _) = Length 4
   payloadSize (DestroyReply _) = Length 4
-  payloadSize (SendRequest _ _ len _ _) = Length $ 12 + len
+  payloadSize (SendRequest _ _ (Length len) _ _) = Length $ 12 + len
   payloadSize (SendReply _) = Length 4
 
 putInt32 :: Int32 -> Put
@@ -316,9 +332,9 @@ getInterfaceReply = do
 
 getSendRequest :: Get ProtocolPayload
 getSendRequest = do
-  fromPid <- get
-  destPid <- get
-  sigLen <- get :: Get Int32
+  from <- get
+  dest <- get
+  Length len <- get
   sigNo <- get
-  sigData <- getLazyByteString (fromIntegral $ sigLen - 4)
-  return $ mkSendRequest fromPid destPid sigNo sigData
+  sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
+  return $ mkSendRequest from dest sigNo sigData

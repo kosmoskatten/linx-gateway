@@ -65,6 +65,12 @@ instance Arbitrary CString where
 instance Arbitrary Pid where
   arbitrary = Pid <$> int32
 
+instance Arbitrary SigNo where
+  arbitrary = SigNo <$> int32
+  
+instance Arbitrary SigData where
+  arbitrary = SigData <$> byteString
+
 instance Arbitrary Message where
   arbitrary = toMessage <$> arbitrary
 
@@ -93,7 +99,8 @@ destroyReply :: Gen ProtocolPayload
 destroyReply = DestroyReply <$> arbitrary
 
 sendRequest :: Gen ProtocolPayload
-sendRequest = mkSendRequest <$> int32 <*> int32 <*> int32 <*> byteString
+sendRequest = 
+  mkSendRequest <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 sendReply :: Gen ProtocolPayload
 sendReply = mkSendReply <$> arbitrary
