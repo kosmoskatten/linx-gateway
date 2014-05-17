@@ -55,13 +55,14 @@ instance Arbitrary ProtocolPayload where
                     , sendRequest
                     , sendReply
                     , receiveRequest
+                    , receiveReply
                     ]
 
 instance Arbitrary Length where
   arbitrary = Length <$> int32
 
 instance Arbitrary CString where
-  arbitrary = CString <$> byteString
+  arbitrary = CString <$> neByteString
 
 instance Arbitrary Pid where
   arbitrary = Pid <$> int32
@@ -109,12 +110,28 @@ sendReply = mkSendReply <$> arbitrary
 receiveRequest :: Gen ProtocolPayload
 receiveRequest = mkReceiveRequest <$> arbitrary <*> arbitrary
 
+receiveReply :: Gen ProtocolPayload
+receiveReply = do
+  sigNo <- frequency [ (1, pure Nothing), (5, Just <$> arbitrary) ]
+  case sigNo of
+    Nothing -> mkReceiveReply <$> arbitrary <*> arbitrary  <*> arbitrary
+                              <*> pure Nothing <*> pure Nothing
+    _       -> mkReceiveReply <$> arbitrary <*> arbitrary <*> arbitrary
+                              <*> pure sigNo <*> (Just <$> arbitrary)
+
+neByteString :: Gen LBS.ByteString
+neByteString = 
+  LBS.pack <$> listOf1 (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
+  
 byteString :: Gen LBS.ByteString
 byteString = 
-  LBS.pack <$> listOf1 (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
+  LBS.pack <$> listOf (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
   
 int32 :: Gen Int32
 int32 = choose (0, maxBound)
+
+weightedLength :: Gen Length
+weightedLength = Length <$> frequency [ (1, pure 0), (4, int32) ]
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ (Length len) _) =

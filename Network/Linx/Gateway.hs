@@ -18,16 +18,18 @@ module Network.Linx.Gateway
        , mkSendRequest
        , mkSendReply
        , mkReceiveRequest
+       , mkReceiveReply
        , encode
        , decode
        ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (replicateM)
+import Control.Monad (when, replicateM)
 import Data.Binary
 import Data.Binary.Put (putLazyByteString)
 import Data.Binary.Get (getLazyByteString, getLazyByteStringNul)
 import Data.Int (Int32)
+import Data.Maybe (isJust, fromJust)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import GHC.Generics (Generic)
 
@@ -129,6 +131,7 @@ data ProtocolPayload =
   | SendRequest !Pid !Pid !Length !SigNo !SigData
   | SendReply !Status
   | ReceiveRequest !Timeout !Length ![SigNo]
+  | ReceiveReply !Status !Pid !Pid !Length !(Maybe SigNo) !(Maybe SigData)
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -152,6 +155,23 @@ mkReceiveRequest :: Timeout -> [SigNo] -> ProtocolPayload
 mkReceiveRequest timeout sigNos =
   let len = Length $ fromIntegral (length sigNos)
   in ReceiveRequest timeout len sigNos
+
+-- | Create a ReceiveReply protocol payload.
+mkReceiveReply :: Status 
+               -> Pid 
+               -> Pid 
+               -> (Maybe SigNo) 
+               -> (Maybe SigData) 
+               -> ProtocolPayload
+mkReceiveReply status sender addressee Nothing _ =
+  ReceiveReply status sender addressee (Length 0) Nothing Nothing
+mkReceiveReply status sender addressee justSigNo Nothing =
+  ReceiveReply status sender addressee (Length 4) justSigNo Nothing
+mkReceiveReply status sender addressee justSigNo justSigData@(Just sigData) =
+  let SigData lbs = sigData
+      lbsLen      = fromIntegral $ LBS.length lbs
+      sigLen      = Length $ 4 + lbsLen -- The length includes the sigNo
+  in ReceiveReply status sender addressee sigLen justSigNo justSigData  
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -281,6 +301,15 @@ instance Binary Message where
       SendReply status                              -> put status
       ReceiveRequest timeout len sigNos             ->
         put timeout >> put len >> putList sigNos
+      ReceiveReply status sender addressee len sigNo sigData -> do
+        put status
+        put sender
+        put addressee
+        put len
+        when (isJust sigNo) $ put (fromJust sigNo)
+        when (isJust sigData) $ do
+          let SigData lbs = fromJust sigData
+          putLazyByteString lbs
   
   get                             = do
     code <- get
@@ -296,6 +325,7 @@ instance Binary Message where
         SendRequestOp      -> getSendRequest                    
         SendReplyOp        -> mkSendReply <$> get
         ReceiveRequestOp   -> getReceiveRequest
+        ReceiveReplyOp     -> getReceiveReply
           
     return $ Message code size payload
 
@@ -310,6 +340,7 @@ instance Payload ProtocolPayload where
   messageCode (SendRequest _ _ _ _ _)    = SendRequestOp
   messageCode (SendReply _)              = SendReplyOp
   messageCode (ReceiveRequest _ _ _)     = ReceiveRequestOp
+  messageCode (ReceiveReply _ _ _ _ _ _) = ReceiveReplyOp
   
   payloadSize (InterfaceRequest _ _)       = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _) = Length $ 16 + (len * 4)
@@ -321,6 +352,7 @@ instance Payload ProtocolPayload where
   payloadSize (SendRequest _ _ (Length len) _ _) = Length $ 12 + len
   payloadSize (SendReply _) = Length 4
   payloadSize (ReceiveRequest _ (Length len) _) = Length $ 8 + (len * 4)
+  payloadSize (ReceiveReply _ _ _ (Length len) _ _ ) = Length $ 16 + len
 
 putInt32 :: Int32 -> Put
 putInt32 = put
@@ -358,3 +390,17 @@ getReceiveRequest = do
   len <- get
   sigNos <- getList len
   return $ ReceiveRequest timeout len sigNos
+  
+getReceiveReply :: Get ProtocolPayload
+getReceiveReply = do
+  status <- get
+  sender <- get
+  addressee <- get
+  Length len <- get
+  if len == 0 then
+    return $ mkReceiveReply status sender addressee Nothing Nothing
+    else do
+      sigNo <- get
+      sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
+      return $ mkReceiveReply status sender addressee (Just sigNo) (Just sigData)
+    
