@@ -160,8 +160,8 @@ mkReceiveRequest timeout sigNos =
 mkReceiveReply :: Status 
                -> Pid 
                -> Pid 
-               -> (Maybe SigNo) 
-               -> (Maybe SigData) 
+               -> Maybe SigNo
+               -> Maybe SigData
                -> ProtocolPayload
 mkReceiveReply status sender addressee Nothing _ =
   ReceiveReply status sender addressee (Length 0) Nothing Nothing
@@ -345,7 +345,7 @@ instance Payload ProtocolPayload where
   payloadSize InterfaceRequest {}                    = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _)  = Length $ 16 + (len * 4)
   payloadSize (CreateRequest _ (CString name))       = 
-    Length $ 4 + (fromIntegral $ LBS.length name) + 1
+    Length $ 4 + fromIntegral (LBS.length name) + 1
   payloadSize CreateReply {}                         = Length 12
   payloadSize DestroyRequest {}                      = Length 4
   payloadSize DestroyReply {}                        = Length 4
