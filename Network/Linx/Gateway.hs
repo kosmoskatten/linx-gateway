@@ -331,16 +331,16 @@ instance Binary Message where
 
 -- | Payload instance for 'ProtocolPayload'.
 instance Payload ProtocolPayload where
-  messageCode (InterfaceRequest _ _)     = InterfaceRequestOp
-  messageCode (InterfaceReply _ _ _ _ _) = InterfaceReplyOp
-  messageCode (CreateRequest _ _)        = CreateRequestOp
-  messageCode (CreateReply _ _ _)        = CreateReplyOp
-  messageCode (DestroyRequest _)         = DestroyRequestOp
-  messageCode (DestroyReply _)           = DestroyReplyOp
-  messageCode (SendRequest _ _ _ _ _)    = SendRequestOp
-  messageCode (SendReply _)              = SendReplyOp
-  messageCode (ReceiveRequest _ _ _)     = ReceiveRequestOp
-  messageCode (ReceiveReply _ _ _ _ _ _) = ReceiveReplyOp
+  messageCode InterfaceRequest {} = InterfaceRequestOp
+  messageCode InterfaceReply {}   = InterfaceReplyOp
+  messageCode CreateRequest {}    = CreateRequestOp
+  messageCode CreateReply {}      = CreateReplyOp
+  messageCode DestroyRequest {}   = DestroyRequestOp
+  messageCode DestroyReply {}     = DestroyReplyOp
+  messageCode SendRequest {}      = SendRequestOp
+  messageCode SendReply {}        = SendReplyOp
+  messageCode ReceiveRequest {}   = ReceiveRequestOp
+  messageCode ReceiveReply {}     = ReceiveReplyOp
   
   payloadSize (InterfaceRequest _ _)       = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _) = Length $ 16 + (len * 4)
