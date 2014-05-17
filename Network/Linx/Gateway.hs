@@ -342,16 +342,16 @@ instance Payload ProtocolPayload where
   messageCode ReceiveRequest {}   = ReceiveRequestOp
   messageCode ReceiveReply {}     = ReceiveReplyOp
   
-  payloadSize (InterfaceRequest _ _)       = Length 8
-  payloadSize (InterfaceReply _ _ _ (Length len) _) = Length $ 16 + (len * 4)
-  payloadSize (CreateRequest _ (CString name)) = 
+  payloadSize InterfaceRequest {}                    = Length 8
+  payloadSize (InterfaceReply _ _ _ (Length len) _)  = Length $ 16 + (len * 4)
+  payloadSize (CreateRequest _ (CString name))       = 
     Length $ 4 + (fromIntegral $ LBS.length name) + 1
-  payloadSize (CreateReply _ _ _) = Length 12
-  payloadSize (DestroyRequest _) = Length 4
-  payloadSize (DestroyReply _) = Length 4
-  payloadSize (SendRequest _ _ (Length len) _ _) = Length $ 12 + len
+  payloadSize CreateReply {}                         = Length 12
+  payloadSize DestroyRequest {}                      = Length 4
+  payloadSize DestroyReply {}                        = Length 4
+  payloadSize (SendRequest _ _ (Length len) _ _)     = Length $ 12 + len
   payloadSize (SendReply _) = Length 4
-  payloadSize (ReceiveRequest _ (Length len) _) = Length $ 8 + (len * 4)
+  payloadSize (ReceiveRequest _ (Length len) _)      = Length $ 8 + (len * 4)
   payloadSize (ReceiveReply _ _ _ (Length len) _ _ ) = Length $ 16 + len
 
 putInt32 :: Int32 -> Put
