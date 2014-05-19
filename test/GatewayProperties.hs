@@ -115,24 +115,17 @@ receiveRequest = mkReceiveRequest <$> arbitrary <*> arbitrary
 
 receiveReply :: Gen ProtocolPayload
 receiveReply =
-  mkReceiveReply <$> arbitrary <*> arbitrary <*> arbitrary  
-                 <*> frequency [ (1, pure Nothing)
-                               , (5, Just <$> ((,) <$> arbitrary 
-                                                   <*> arbitrary)) ]
+  mkReceiveReply <$> arbitrary <*> arbitrary <*> arbitrary <*> maybeSigPair
 
 huntRequest :: Gen ProtocolPayload
 huntRequest =
-  mkHuntRequest <$> arbitrary <*> arbitrary
-                <*> frequency [ (1, pure Nothing)
-                              , (5, Just <$> ((,) <$> arbitrary 
-                                                  <*> arbitrary)) ]
+  mkHuntRequest <$> arbitrary <*> arbitrary <*> maybeSigPair
                 
 huntReply :: Gen ProtocolPayload
 huntReply = mkHuntReply <$> arbitrary <*> arbitrary
 
 attachRequest :: Gen ProtocolPayload
-attachRequest =
-  mkAttachRequest <$> arbitrary <*> maybeSigPair
+attachRequest = mkAttachRequest <$> arbitrary <*> maybeSigPair
 
 neByteString :: Gen LBS.ByteString
 neByteString = 
