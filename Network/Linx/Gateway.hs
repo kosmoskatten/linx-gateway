@@ -90,6 +90,11 @@ newtype Length =
   Length Int32
   deriving (Show, Eq, Generic)
 
+-- | Index into signal data.
+newtype Index =
+  Index Int32
+  deriving (Show, Eq, Generic)
+
 -- | A null terminated string.
 newtype CString =
   CString LBS.ByteString
@@ -132,6 +137,7 @@ data ProtocolPayload =
   | SendReply !Status
   | ReceiveRequest !Timeout !Length ![SigNo]
   | ReceiveReply !Status !Pid !Pid !Length !(Maybe SigNo) !(Maybe SigData)
+--  | HuntRequest !User !Index !Index !Length !SigNo !SigData
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -158,20 +164,17 @@ mkReceiveRequest timeout sigNos =
 
 -- | Create a ReceiveReply protocol payload.
 mkReceiveReply :: Status 
-               -> Pid 
-               -> Pid 
-               -> Maybe SigNo
-               -> Maybe SigData
+               -> Pid  
+               -> Pid  
+               -> Maybe (SigNo, SigData) 
                -> ProtocolPayload
-mkReceiveReply status sender addressee Nothing _ =
+mkReceiveReply status sender addressee Nothing =
   ReceiveReply status sender addressee (Length 0) Nothing Nothing
-mkReceiveReply status sender addressee justSigNo Nothing =
-  ReceiveReply status sender addressee (Length 4) justSigNo Nothing
-mkReceiveReply status sender addressee justSigNo justSigData@(Just sigData) =
+mkReceiveReply status sender addressee (Just (sigNo, sigData)) =  
   let SigData lbs = sigData
       lbsLen      = fromIntegral $ LBS.length lbs
       sigLen      = Length $ 4 + lbsLen -- The length includes the sigNo
-  in ReceiveReply status sender addressee sigLen justSigNo justSigData  
+  in ReceiveReply status sender addressee sigLen (Just sigNo) (Just sigData)
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -268,6 +271,9 @@ instance Binary Timeout where
 
 -- | Binary instance for 'Length'.
 instance Binary Length
+
+-- | Binary instance for 'Index'.
+instance Binary Index
 
 -- | Binary instance for 'CString'.
 instance Binary CString where
@@ -398,9 +404,9 @@ getReceiveReply = do
   addressee <- get
   Length len <- get
   if len == 0 then
-    return $ mkReceiveReply status sender addressee Nothing Nothing
+    return $ mkReceiveReply status sender addressee Nothing
     else do
       sigNo <- get
       sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
-      return $ mkReceiveReply status sender addressee (Just sigNo) (Just sigData)
+      return $ mkReceiveReply status sender addressee (Just (sigNo, sigData))
     

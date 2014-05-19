@@ -111,13 +111,11 @@ receiveRequest :: Gen ProtocolPayload
 receiveRequest = mkReceiveRequest <$> arbitrary <*> arbitrary
 
 receiveReply :: Gen ProtocolPayload
-receiveReply = do
-  sigNo <- frequency [ (1, pure Nothing), (5, Just <$> arbitrary) ]
-  case sigNo of
-    Nothing -> mkReceiveReply <$> arbitrary <*> arbitrary  <*> arbitrary
-                              <*> pure Nothing <*> pure Nothing
-    _       -> mkReceiveReply <$> arbitrary <*> arbitrary <*> arbitrary
-                              <*> pure sigNo <*> (Just <$> arbitrary)
+receiveReply =
+  mkReceiveReply <$> arbitrary <*> arbitrary <*> arbitrary  
+                 <*> frequency [ (1, pure Nothing)
+                               , (5, Just <$> ((,) <$> arbitrary 
+                                                   <*> arbitrary)) ]
 
 neByteString :: Gen LBS.ByteString
 neByteString = 
