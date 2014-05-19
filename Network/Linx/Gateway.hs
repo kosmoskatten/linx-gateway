@@ -7,6 +7,7 @@ module Network.Linx.Gateway
        , User (..)
        , Timeout (..)
        , Length (..)
+       , Index (..)
        , CString (..)
        , Pid (..)
        , SigNo (..)
@@ -19,6 +20,7 @@ module Network.Linx.Gateway
        , mkSendReply
        , mkReceiveRequest
        , mkReceiveReply
+       , mkHuntRequest
        , encode
        , decode
        ) where
@@ -137,7 +139,8 @@ data ProtocolPayload =
   | SendReply !Status
   | ReceiveRequest !Timeout !Length ![SigNo]
   | ReceiveReply !Status !Pid !Pid !Length !(Maybe SigNo) !(Maybe SigData)
---  | HuntRequest !User !Index !Index !Length !SigNo !SigData
+  -- The HuntRequest always places the hunt name before the signal data.
+  | HuntRequest !User !Index !Index !Length !(Maybe SigNo) !CString !(Maybe SigData)
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -161,7 +164,7 @@ mkReceiveRequest :: Timeout -> [SigNo] -> ProtocolPayload
 mkReceiveRequest timeout sigNos =
   let len = Length $ fromIntegral (length sigNos)
   in ReceiveRequest timeout len sigNos
-
+ 
 -- | Create a ReceiveReply protocol payload.
 mkReceiveReply :: Status 
                -> Pid  
@@ -175,6 +178,18 @@ mkReceiveReply status sender addressee (Just (sigNo, sigData)) =
       lbsLen      = fromIntegral $ LBS.length lbs
       sigLen      = Length $ 4 + lbsLen -- The length includes the sigNo
   in ReceiveReply status sender addressee sigLen (Just sigNo) (Just sigData)
+     
+-- | Create a HuntRequest protocol payload.
+mkHuntRequest :: User -> CString -> Maybe (SigNo, SigData) -> ProtocolPayload
+mkHuntRequest user huntName Nothing = 
+  HuntRequest user (Index 0) (Index 0) (Length 0) Nothing huntName Nothing
+mkHuntRequest user huntName (Just (sigNo, sigData)) =
+  let CString nameLbs = huntName
+      sigIndex        = Index (fromIntegral $ LBS.length nameLbs + 1)
+      SigData sigLbs  = sigData
+      sigLbsLen       = fromIntegral $ LBS.length sigLbs
+      sigLen          = Length $ 4 + sigLbsLen
+  in HuntRequest user (Index 0) sigIndex sigLen (Just sigNo) huntName (Just sigData)
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -316,6 +331,16 @@ instance Binary Message where
         when (isJust sigData) $ do
           let SigData lbs = fromJust sigData
           putLazyByteString lbs
+      HuntRequest user nIndex sIndex len sigNo name sigData  -> do
+        put user
+        put nIndex
+        put sIndex
+        put len
+        when (isJust sigNo) $ put (fromJust sigNo)
+        put name
+        when (isJust sigData) $ do
+          let SigData lbs = fromJust sigData
+          putLazyByteString lbs
   
   get                             = do
     code <- get
@@ -332,6 +357,7 @@ instance Binary Message where
         SendReplyOp        -> mkSendReply <$> get
         ReceiveRequestOp   -> getReceiveRequest
         ReceiveReplyOp     -> getReceiveReply
+        HuntRequestOp      -> getHuntRequest
           
     return $ Message code size payload
 
@@ -347,6 +373,7 @@ instance Payload ProtocolPayload where
   messageCode SendReply {}        = SendReplyOp
   messageCode ReceiveRequest {}   = ReceiveRequestOp
   messageCode ReceiveReply {}     = ReceiveReplyOp
+  messageCode HuntRequest {}      = HuntRequestOp
   
   payloadSize InterfaceRequest {}                    = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _)  = Length $ 16 + (len * 4)
@@ -359,7 +386,11 @@ instance Payload ProtocolPayload where
   payloadSize (SendReply _) = Length 4
   payloadSize (ReceiveRequest _ (Length len) _)      = Length $ 8 + (len * 4)
   payloadSize (ReceiveReply _ _ _ (Length len) _ _ ) = Length $ 16 + len
-
+  payloadSize (HuntRequest _ _ _ _ _ (CString name) Nothing) =
+    Length $ 16 + (fromIntegral $ LBS.length name) + 1
+  payloadSize (HuntRequest _ _ (Index sIndex) (Length len) _ _ _) =
+    Length $ 16 + sIndex + len
+    
 putInt32 :: Int32 -> Put
 putInt32 = put
 
@@ -410,3 +441,18 @@ getReceiveReply = do
       sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
       return $ mkReceiveReply status sender addressee (Just (sigNo, sigData))
     
+getHuntRequest :: Get ProtocolPayload      
+getHuntRequest = do
+  user <- get
+  _nIndex <- get :: Get Index
+  _sIndex <- get :: Get Index
+  Length len <- get
+  if len == 0 then do
+    name <- get
+    return $ mkHuntRequest user name Nothing
+    else do
+      sigNo <- get
+      name <- get
+      sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
+      return $ mkHuntRequest user name (Just (sigNo, sigData))
+         
