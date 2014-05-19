@@ -59,10 +59,14 @@ instance Arbitrary ProtocolPayload where
                     , huntRequest
                     , huntReply
                     , attachRequest
+                    , attachReply
                     ]
 
 instance Arbitrary Length where
   arbitrary = Length <$> int32
+
+instance Arbitrary Attref where
+  arbitrary = Attref <$> int32
 
 instance Arbitrary CString where
   arbitrary = CString <$> neByteString
@@ -126,6 +130,9 @@ huntReply = mkHuntReply <$> arbitrary <*> arbitrary
 
 attachRequest :: Gen ProtocolPayload
 attachRequest = mkAttachRequest <$> arbitrary <*> maybeSigPair
+
+attachReply :: Gen ProtocolPayload
+attachReply = mkAttachReply <$> arbitrary <*> arbitrary
 
 neByteString :: Gen LBS.ByteString
 neByteString = 

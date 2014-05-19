@@ -8,6 +8,7 @@ module Network.Linx.Gateway
        , Timeout (..)
        , Length (..)
        , Index (..)
+       , Attref (..)
        , CString (..)
        , Pid (..)
        , SigNo (..)
@@ -23,6 +24,7 @@ module Network.Linx.Gateway
        , mkHuntRequest
        , mkHuntReply
        , mkAttachRequest
+       , mkAttachReply
        , encode
        , decode
        ) where
@@ -99,6 +101,11 @@ newtype Index =
   Index Int32
   deriving (Show, Eq, Generic)
 
+-- | Attachment reference.
+newtype Attref =
+  Attref Int32
+  deriving (Show, Eq, Generic)
+
 -- | A null terminated string.
 newtype CString =
   CString LBS.ByteString
@@ -145,6 +152,7 @@ data ProtocolPayload =
   | HuntRequest !User !Index !Index !Length !(Maybe SigNo) !CString !(Maybe SigData)
   | HuntReply !Status !Pid
   | AttachRequest !Pid !Length !(Maybe SigNo) !(Maybe SigData)
+  | AttachReply !Status !Attref
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -200,7 +208,7 @@ mkHuntRequest user huntName (Just (sigNo, sigData)) =
 mkHuntReply :: Status -> Pid -> ProtocolPayload
 mkHuntReply = HuntReply
 
--- | Create a AttachRequest protocol payload.
+-- | Create an AttachRequest protocol payload.
 mkAttachRequest :: Pid -> Maybe (SigNo, SigData) -> ProtocolPayload
 mkAttachRequest pid Nothing = AttachRequest pid (Length 0) Nothing Nothing
 mkAttachRequest pid (Just (sigNo, sigData)) =
@@ -208,6 +216,10 @@ mkAttachRequest pid (Just (sigNo, sigData)) =
       lbsLen      = fromIntegral $ LBS.length lbs
       sigLen      = Length $ 4 + lbsLen -- The length includes the sigNo
   in AttachRequest pid sigLen (Just sigNo) (Just sigData)
+     
+-- | Create an AttachReply protocol payload.
+mkAttachReply :: Status -> Attref -> ProtocolPayload
+mkAttachReply = AttachReply
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -308,6 +320,9 @@ instance Binary Length
 -- | Binary instance for 'Index'.
 instance Binary Index
 
+-- | Binary instance for 'Attref'.
+instance Binary Attref
+
 -- | Binary instance for 'CString'.
 instance Binary CString where
   put (CString lbs) = putLazyByteString lbs >> putWord8 0
@@ -367,6 +382,7 @@ instance Binary Message where
         when (isJust sigData) $ do
           let SigData lbs = fromJust sigData              
           putLazyByteString lbs
+      AttachReply status attref                     -> put status >> put attref
   
   get                             = do
     code <- get
@@ -386,6 +402,7 @@ instance Binary Message where
         HuntRequestOp      -> getHuntRequest
         HuntReplyOp        -> HuntReply <$> get <*> get
         AttachRequestOp    -> getAttachRequest
+        AttachReplyOp      -> AttachReply <$> get <*> get
           
     return $ Message code size payload
 
@@ -404,6 +421,7 @@ instance Payload ProtocolPayload where
   messageCode HuntRequest {}      = HuntRequestOp
   messageCode HuntReply {}        = HuntReplyOp
   messageCode AttachRequest {}    = AttachRequestOp
+  messageCode AttachReply {}      = AttachReplyOp
   
   payloadSize InterfaceRequest {}                    = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _)  = Length $ 16 + (len * 4)
@@ -422,6 +440,7 @@ instance Payload ProtocolPayload where
     Length $ 16 + sIndex + len
   payloadSize HuntReply {}                           = Length 8
   payloadSize (AttachRequest _ (Length len) _ _)     = Length $ 8 + len
+  payloadSize AttachReply {}                         = Length 8
     
 putInt32 :: Int32 -> Put
 putInt32 = put
