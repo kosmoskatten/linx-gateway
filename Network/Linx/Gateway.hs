@@ -21,6 +21,7 @@ module Network.Linx.Gateway
        , mkReceiveRequest
        , mkReceiveReply
        , mkHuntRequest
+       , mkHuntReply
        , encode
        , decode
        ) where
@@ -141,6 +142,7 @@ data ProtocolPayload =
   | ReceiveReply !Status !Pid !Pid !Length !(Maybe SigNo) !(Maybe SigData)
   -- The HuntRequest always places the hunt name before the signal data.
   | HuntRequest !User !Index !Index !Length !(Maybe SigNo) !CString !(Maybe SigData)
+  | HuntReply !Status !Pid
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -189,7 +191,12 @@ mkHuntRequest user huntName (Just (sigNo, sigData)) =
       SigData sigLbs  = sigData
       sigLbsLen       = fromIntegral $ LBS.length sigLbs
       sigLen          = Length $ 4 + sigLbsLen
-  in HuntRequest user (Index 0) sigIndex sigLen (Just sigNo) huntName (Just sigData)
+  in HuntRequest user (Index 0) sigIndex sigLen (Just sigNo) 
+                 huntName (Just sigData)
+     
+-- | Create HuntReply protocol payload.
+mkHuntReply :: Status -> Pid -> ProtocolPayload
+mkHuntReply = HuntReply
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -341,6 +348,7 @@ instance Binary Message where
         when (isJust sigData) $ do
           let SigData lbs = fromJust sigData
           putLazyByteString lbs
+      HuntReply status pid                          -> put status >> put pid
   
   get                             = do
     code <- get
@@ -358,6 +366,7 @@ instance Binary Message where
         ReceiveRequestOp   -> getReceiveRequest
         ReceiveReplyOp     -> getReceiveReply
         HuntRequestOp      -> getHuntRequest
+        HuntReplyOp        -> HuntReply <$> get <*> get
           
     return $ Message code size payload
 
@@ -374,6 +383,7 @@ instance Payload ProtocolPayload where
   messageCode ReceiveRequest {}   = ReceiveRequestOp
   messageCode ReceiveReply {}     = ReceiveReplyOp
   messageCode HuntRequest {}      = HuntRequestOp
+  messageCode HuntReply {}        = HuntReplyOp
   
   payloadSize InterfaceRequest {}                    = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _)  = Length $ 16 + (len * 4)
@@ -390,6 +400,7 @@ instance Payload ProtocolPayload where
     Length $ 16 + (fromIntegral $ LBS.length name) + 1
   payloadSize (HuntRequest _ _ (Index sIndex) (Length len) _ _ _) =
     Length $ 16 + sIndex + len
+  payloadSize HuntReply {}                           = Length 8
     
 putInt32 :: Int32 -> Put
 putInt32 = put

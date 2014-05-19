@@ -57,6 +57,7 @@ instance Arbitrary ProtocolPayload where
                     , receiveRequest
                     , receiveReply
                     , huntRequest
+                    , huntReply
                     ]
 
 instance Arbitrary Length where
@@ -124,6 +125,9 @@ huntRequest =
                 <*> frequency [ (1, pure Nothing)
                               , (5, Just <$> ((,) <$> arbitrary 
                                                   <*> arbitrary)) ]
+                
+huntReply :: Gen ProtocolPayload
+huntReply = mkHuntReply <$> arbitrary <*> arbitrary
 
 neByteString :: Gen LBS.ByteString
 neByteString = 
