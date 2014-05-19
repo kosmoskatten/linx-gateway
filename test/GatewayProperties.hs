@@ -58,6 +58,7 @@ instance Arbitrary ProtocolPayload where
                     , receiveReply
                     , huntRequest
                     , huntReply
+                    , attachRequest
                     ]
 
 instance Arbitrary Length where
@@ -129,6 +130,10 @@ huntRequest =
 huntReply :: Gen ProtocolPayload
 huntReply = mkHuntReply <$> arbitrary <*> arbitrary
 
+attachRequest :: Gen ProtocolPayload
+attachRequest =
+  mkAttachRequest <$> arbitrary <*> maybeSigPair
+
 neByteString :: Gen LBS.ByteString
 neByteString = 
   LBS.pack <$> listOf1 (elements (['a'..'z']++['A'..'Z']++['0'..'9']))
@@ -142,6 +147,11 @@ int32 = choose (0, maxBound)
 
 weightedLength :: Gen Length
 weightedLength = Length <$> frequency [ (1, pure 0), (4, int32) ]
+
+maybeSigPair :: Gen (Maybe (SigNo, SigData))
+maybeSigPair = frequency [ (1, pure Nothing)
+                         , (5, Just <$> ((,) <$> arbitrary 
+                                             <*> arbitrary)) ]
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ (Length len) _) =

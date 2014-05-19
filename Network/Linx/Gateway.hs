@@ -22,6 +22,7 @@ module Network.Linx.Gateway
        , mkReceiveReply
        , mkHuntRequest
        , mkHuntReply
+       , mkAttachRequest
        , encode
        , decode
        ) where
@@ -143,6 +144,7 @@ data ProtocolPayload =
   -- The HuntRequest always places the hunt name before the signal data.
   | HuntRequest !User !Index !Index !Length !(Maybe SigNo) !CString !(Maybe SigData)
   | HuntReply !Status !Pid
+  | AttachRequest !Pid !Length !(Maybe SigNo) !(Maybe SigData)
   deriving (Show, Eq)  
 
 -- | Convert a Linx protocol payload message to a serializable
@@ -194,9 +196,18 @@ mkHuntRequest user huntName (Just (sigNo, sigData)) =
   in HuntRequest user (Index 0) sigIndex sigLen (Just sigNo) 
                  huntName (Just sigData)
      
--- | Create HuntReply protocol payload.
+-- | Create a HuntReply protocol payload.
 mkHuntReply :: Status -> Pid -> ProtocolPayload
 mkHuntReply = HuntReply
+
+-- | Create a AttachRequest protocol payload.
+mkAttachRequest :: Pid -> Maybe (SigNo, SigData) -> ProtocolPayload
+mkAttachRequest pid Nothing = AttachRequest pid (Length 0) Nothing Nothing
+mkAttachRequest pid (Just (sigNo, sigData)) =
+  let SigData lbs = sigData
+      lbsLen      = fromIntegral $ LBS.length lbs
+      sigLen      = Length $ 4 + lbsLen -- The length includes the sigNo
+  in AttachRequest pid sigLen (Just sigNo) (Just sigData)
 
 -- | Binary instance for 'MessageCode'.
 instance Binary MessageCode where
@@ -349,6 +360,13 @@ instance Binary Message where
           let SigData lbs = fromJust sigData
           putLazyByteString lbs
       HuntReply status pid                          -> put status >> put pid
+      AttachRequest pid len sigNo sigData           -> do
+        put pid
+        put len
+        when (isJust sigNo) $ put (fromJust sigNo)
+        when (isJust sigData) $ do
+          let SigData lbs = fromJust sigData              
+          putLazyByteString lbs
   
   get                             = do
     code <- get
@@ -367,6 +385,7 @@ instance Binary Message where
         ReceiveReplyOp     -> getReceiveReply
         HuntRequestOp      -> getHuntRequest
         HuntReplyOp        -> HuntReply <$> get <*> get
+        AttachRequestOp    -> getAttachRequest
           
     return $ Message code size payload
 
@@ -384,6 +403,7 @@ instance Payload ProtocolPayload where
   messageCode ReceiveReply {}     = ReceiveReplyOp
   messageCode HuntRequest {}      = HuntRequestOp
   messageCode HuntReply {}        = HuntReplyOp
+  messageCode AttachRequest {}    = AttachRequestOp
   
   payloadSize InterfaceRequest {}                    = Length 8
   payloadSize (InterfaceReply _ _ _ (Length len) _)  = Length $ 16 + (len * 4)
@@ -401,6 +421,7 @@ instance Payload ProtocolPayload where
   payloadSize (HuntRequest _ _ (Index sIndex) (Length len) _ _ _) =
     Length $ 16 + sIndex + len
   payloadSize HuntReply {}                           = Length 8
+  payloadSize (AttachRequest _ (Length len) _ _)     = Length $ 8 + len
     
 putInt32 :: Int32 -> Put
 putInt32 = put
@@ -466,4 +487,15 @@ getHuntRequest = do
       name <- get
       sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
       return $ mkHuntRequest user name (Just (sigNo, sigData))
+      
+getAttachRequest :: Get ProtocolPayload
+getAttachRequest = do
+  pid <- get
+  Length len <- get
+  if len == 0 then
+    return $ mkAttachRequest pid Nothing
+    else do
+      sigNo <- get
+      sigData <- SigData <$> getLazyByteString (fromIntegral $ len - 4)
+      return $ mkAttachRequest pid (Just (sigNo, sigData))
          
