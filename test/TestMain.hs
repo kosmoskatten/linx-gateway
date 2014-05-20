@@ -3,14 +3,14 @@ module Main (main) where
 import Test.Framework (Test, defaultMain, testGroup)
 import Test.Framework.Providers.QuickCheck2 (testProperty)
 
-import GatewayProperties
+import MessageProperties
 
 main :: IO ()
 main = defaultMain suite
 
 suite :: [Test]
 suite = 
-  [ testGroup "Gateway properties"
+  [ testGroup "Message properties"
     [ testProperty "Shall encode/decode messages" prop_message
     ]
   ]

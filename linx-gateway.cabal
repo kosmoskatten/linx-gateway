@@ -18,6 +18,7 @@ cabal-version:       >=1.20
 
 library
   exposed-modules:     Network.Linx.Gateway
+                       , Network.Linx.Gateway.Message
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.6 && <4.7
