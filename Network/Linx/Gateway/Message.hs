@@ -1,5 +1,14 @@
 {-# LANGUAGE DeriveGeneric #-}
-module Network.Linx.Gateway.Message where
+module Network.Linx.Gateway.Message 
+       ( Message (..)
+       , Header (..)
+       , ProtocolPayload
+       , Length (..)
+       , Version (..)
+       , Flags (..)
+       , mkInterfaceRequest
+       , decodeProtocolPayload
+       ) where
 
 import Control.Applicative ((<$>), (<*>))
 import Data.Binary
@@ -110,9 +119,9 @@ instance Binary Flags where
   put (Flags value) = put value
 
 -- | Make an 'InterfaceRequest' message.
-mkInterfaceRequest :: Message
-mkInterfaceRequest =
-  let payload = InterfaceRequest V100 BigEndian
+mkInterfaceRequest :: Version -> Flags -> Message
+mkInterfaceRequest version flags =
+  let payload = InterfaceRequest version flags
   in Message (header payload) payload
 
 decodeProtocolPayload :: PayloadType -> LBS.ByteString -> ProtocolPayload
