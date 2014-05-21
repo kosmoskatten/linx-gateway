@@ -37,6 +37,22 @@ data ProtocolPayload =
 data PayloadType =
     InterfaceRequestOp
   | InterfaceReplyOp
+  | CreateRequestOp
+  | CreateReplyOp
+  | DestroyRequestOp
+  | DestroyReplyOp
+  | SendRequestOp
+  | SendReplyOp
+  | ReceiveRequestOp
+  | ReceiveReplyOp
+  | HuntRequestOp
+  | HuntReplyOp
+  | AttachRequestOp
+  | AttachReplyOp
+  | DetachRequestOp
+  | DetachReplyOp
+  | NameRequestOp
+  | NameReplyOp
   deriving (Show, Eq)
            
 -- | Length descriptor.
@@ -85,13 +101,45 @@ instance Binary PayloadType where
     value <- getInt32
     return $
       case value of
-        1 -> InterfaceRequestOp
-        2 -> InterfaceReplyOp
+        1  -> InterfaceRequestOp
+        2  -> InterfaceReplyOp
+        7  -> CreateRequestOp
+        8  -> CreateReplyOp
+        9  -> DestroyRequestOp
+        10 -> DestroyReplyOp
+        11 -> SendRequestOp
+        12 -> SendReplyOp
+        13 -> ReceiveRequestOp
+        14 -> ReceiveReplyOp
+        15 -> HuntRequestOp
+        16 -> HuntReplyOp
+        17 -> AttachRequestOp
+        18 -> AttachReplyOp
+        19 -> DetachRequestOp
+        20 -> DetachReplyOp
+        21 -> NameRequestOp
+        22 -> NameReplyOp
         _ -> error "Unexpected discriminator code"
   
   put InterfaceRequestOp = putInt32 1
   put InterfaceReplyOp   = putInt32 2
-  
+  put CreateRequestOp    = putInt32 7
+  put CreateReplyOp      = putInt32 8
+  put DestroyRequestOp   = putInt32 9
+  put DestroyReplyOp     = putInt32 10
+  put SendRequestOp      = putInt32 11
+  put SendReplyOp        = putInt32 12
+  put ReceiveRequestOp   = putInt32 13
+  put ReceiveReplyOp     = putInt32 14
+  put HuntRequestOp      = putInt32 15
+  put HuntReplyOp        = putInt32 16
+  put AttachRequestOp    = putInt32 17
+  put AttachReplyOp      = putInt32 18
+  put DetachRequestOp    = putInt32 19
+  put DetachReplyOp      = putInt32 20
+  put NameRequestOp      = putInt32 21
+  put NameReplyOp        = putInt32 22
+
 -- | Binary instance for 'Version'.
 instance Binary Version where
   get = do
