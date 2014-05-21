@@ -9,8 +9,7 @@ import Control.Applicative ((<$>))
 import qualified Data.ByteString.Lazy as LBS
 import Network (HostName, PortID (..), connectTo)
 import Network.Linx.Gateway.Message
-  ( Message (..)
-  , Header (..)
+  ( Header (..)
   , Version (..)
   , Flags (..)
   , Length (..)
@@ -18,6 +17,7 @@ import Network.Linx.Gateway.Message
   , PayloadType (..)
   , encode
   , mkInterfaceRequest
+  , mkCreateRequest
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
@@ -41,4 +41,9 @@ create name hostname port = do
                        <$> LBS.hGet hGw (fromIntegral len)
   print ifcReplyHeader
   print ifcReplyPayload
+  
+  LBS.hPut hGw (encode $ mkCreateRequest name)
+  crReplyHeader <- decodeHeader <$> LBS.hGet hGw headerSize
+  print crReplyHeader
+  
   return $ Gateway hGw (payloadTypes ifcReplyPayload)

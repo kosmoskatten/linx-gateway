@@ -36,7 +36,9 @@ instance Arbitrary PayloadType where
                        , NameReplyOp ]
 
 instance Arbitrary Message where
-  arbitrary = oneof [ interfaceRequest, interfaceReply ]
+  arbitrary = oneof [ interfaceRequest
+                    , interfaceReply
+                    , createRequest ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -44,6 +46,12 @@ interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
 interfaceReply :: Gen Message
 interfaceReply = 
   mkInterfaceReply <$> arbitrary <*> arbitrary <*> (listOf arbitrary)
+  
+createRequest :: Gen Message
+createRequest = mkCreateRequest <$> clientName
+
+clientName :: Gen String
+clientName = listOf1 (elements $ ['a'..'z']++['A'..'Z'])
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ msgPayload) =

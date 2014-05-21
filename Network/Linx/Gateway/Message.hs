@@ -7,9 +7,12 @@ module Network.Linx.Gateway.Message
        , Length (..)
        , Version (..)
        , Flags (..)
+       , CString (..)
+       , User (..)
        , encode
        , mkInterfaceRequest
        , mkInterfaceReply
+       , mkCreateRequest
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -18,10 +21,12 @@ module Network.Linx.Gateway.Message
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
 import Data.Binary
-import Data.Binary.Get (runGet)
+import Data.Binary.Get (runGet, getLazyByteStringNul)
+import Data.Binary.Put (putLazyByteString)
 import Data.Int
 import GHC.Generics
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBSC
 
 -- | Message.
 data Message =
@@ -44,6 +49,8 @@ data ProtocolPayload =
                    , flags        :: !Flags 
                    , typesLen     :: !Length 
                    , payloadTypes :: ![PayloadType] }
+  | CreateRequest { user   :: !User
+                  , myName :: !CString }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -94,6 +101,14 @@ data Flags =
   | LittleEndian
   | Flags !Int32
   deriving (Show, Eq)
+           
+-- | Null terminated C-string.
+newtype CString = CString LBSC.ByteString
+  deriving (Show, Eq)
+
+-- | User identifier (always zero).
+data User = AlwaysZero
+  deriving (Show, Eq)
 
 -- | Payload class. To be implemented by ProtocolPayload.
 class Payload a where
@@ -105,6 +120,10 @@ instance Payload ProtocolPayload where
   header msg@InterfaceReply {} = 
     let (Length len) = typesLen msg
     in Header InterfaceReplyOp (Length $ 16 + (4 * len))
+  header msg@CreateRequest {}  = 
+    let (CString lbs) = myName msg
+        len           = Length $ 4 + (fromIntegral $ LBS.length lbs) + 1
+    in Header CreateRequestOp len
 
 -- | Generic binary instances.
 instance Binary Header
@@ -120,9 +139,10 @@ instance Binary ProtocolPayload where
   get = error "Shall not be called this way"
   put FailedRequest = error "Shall not be called this way"
   put msg@InterfaceRequest {} = put (version msg) >> put (flags msg)
-  put msg@InterfaceReply {} = 
+  put msg@InterfaceReply {}   = 
     put (status msg) >> put (version msg) >> put (flags msg) 
                      >> put (typesLen msg) >> putList (payloadTypes msg)
+  put msg@CreateRequest {}    = put (user msg) >> put (myName msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -215,6 +235,22 @@ instance Binary Flags where
   put LittleEndian  = putInt32 1
   put (Flags value) = put value
 
+-- | Binary instance for 'CString'.
+instance Binary CString where
+  get = CString <$> getLazyByteStringNul
+  put (CString lbs) = putLazyByteString lbs >> putWord8 0
+  
+-- | Binary instance for 'User'.
+instance Binary User where
+  get = do
+    value <- getInt32
+    return $
+      case value of
+        0 -> AlwaysZero
+        _ -> error $ "Unexpected user value: " ++ show value
+  
+  put AlwaysZero = putInt32 0
+
 -- | Make an 'InterfaceRequest' message.
 mkInterfaceRequest :: Version -> Flags -> Message
 mkInterfaceRequest version' flags' =
@@ -226,6 +262,13 @@ mkInterfaceReply :: Version -> Flags -> [PayloadType] -> Message
 mkInterfaceReply version' flags' types =
   let typesLength = Length $ (fromIntegral . length) types
       payload = InterfaceReply Success version' flags' typesLength types
+  in Message (header payload) payload
+
+-- | Make a 'CreateRequest' message.
+mkCreateRequest :: String -> Message
+mkCreateRequest name =
+  let cstring = CString $ LBSC.pack name
+      payload = CreateRequest AlwaysZero cstring
   in Message (header payload) payload
 
 -- | Get the header size in bytes.
@@ -245,6 +288,7 @@ decodeProtocolPayload payloadType' = runGet go
       case payloadType' of
         InterfaceRequestOp -> decodeInterfaceRequest
         InterfaceReplyOp   -> decodeInterfaceReply
+        CreateRequestOp    -> decodeCreateRequest
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -258,6 +302,9 @@ decodeInterfaceReply = do
   typesLen'     <- get
   payloadTypes' <- getList typesLen'
   return $ InterfaceReply status' version' flags' typesLen' payloadTypes'
+  
+decodeCreateRequest :: Get ProtocolPayload
+decodeCreateRequest = CreateRequest <$> get <*> get
 
 getInt32 :: Get Int32
 getInt32 = get
