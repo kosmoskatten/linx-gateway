@@ -13,10 +13,37 @@ instance Arbitrary Version where
 instance Arbitrary Flags where
   arbitrary = oneof [ pure BigEndian
                     , pure LittleEndian
-                    , Flags <$> choose (1, 99) ]
+                    , Flags <$> choose (2, 99) ]
+              
+instance Arbitrary PayloadType where
+  arbitrary = elements [ InterfaceRequestOp
+                       , InterfaceReplyOp
+                       , CreateRequestOp
+                       , CreateReplyOp
+                       , DestroyRequestOp
+                       , DestroyReplyOp
+                       , SendRequestOp
+                       , SendReplyOp
+                       , ReceiveRequestOp
+                       , ReceiveReplyOp
+                       , HuntRequestOp
+                       , HuntReplyOp
+                       , AttachRequestOp
+                       , AttachReplyOp
+                       , DetachRequestOp
+                       , DetachReplyOp
+                       , NameRequestOp
+                       , NameReplyOp ]
 
 instance Arbitrary Message where
-  arbitrary = mkInterfaceRequest <$> arbitrary <*> arbitrary
+  arbitrary = oneof [ interfaceRequest, interfaceReply ]
+  
+interfaceRequest :: Gen Message
+interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
+
+interfaceReply :: Gen Message
+interfaceReply = 
+  mkInterfaceReply <$> arbitrary <*> arbitrary <*> (listOf arbitrary)
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ msgPayload) =

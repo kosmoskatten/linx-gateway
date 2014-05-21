@@ -13,16 +13,21 @@ import Network.Linx.Gateway.Message
   , Header (..)
   , Version (..)
   , Flags (..)
+  , Length (..)
+  , ProtocolPayload (..)
+  , PayloadType (..)
   , encode
   , mkInterfaceRequest
   , headerSize  
   , decodeHeader
+  , decodeProtocolPayload
   )
 import System.IO (Handle)
   
 -- | Record describing a gateway connection.
 data Gateway =
-  Gateway { handle :: !Handle }
+  Gateway { handle :: !Handle 
+          , types  :: ![PayloadType]}
   deriving (Show, Eq)
            
 -- | Create a new client instance in the gateway.
@@ -30,6 +35,10 @@ create :: String -> HostName -> PortID -> IO Gateway
 create name hostname port = do
   hGw <- connectTo hostname port
   LBS.hPut hGw (encode $ mkInterfaceRequest V100 BigEndian)
-  ifcReplyHeader <- decodeHeader <$> LBS.hGet hGw headerSize
+  ifcReplyHeader  <- decodeHeader <$> LBS.hGet hGw headerSize
+  let (Length len) = payloadLength ifcReplyHeader
+  ifcReplyPayload <- decodeProtocolPayload (payloadType ifcReplyHeader)
+                       <$> LBS.hGet hGw (fromIntegral len)
   print ifcReplyHeader
-  return $ Gateway hGw
+  print ifcReplyPayload
+  return $ Gateway hGw (payloadTypes ifcReplyPayload)
