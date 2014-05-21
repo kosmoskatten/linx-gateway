@@ -6,7 +6,10 @@ module Network.Linx.Gateway.Message
        , Length (..)
        , Version (..)
        , Flags (..)
+       , encode
        , mkInterfaceRequest
+       , headerSize
+       , decodeHeader
        , decodeProtocolPayload
        ) where
 
@@ -24,7 +27,8 @@ data Message =
 
 -- | Message header.
 data Header =
-  Header !PayloadType !Length
+  Header { payloadType   :: !PayloadType 
+         , payloadLength :: !Length }
   deriving (Show, Eq, Generic)
 
 -- | Protocol payload.
@@ -172,12 +176,21 @@ mkInterfaceRequest version flags =
   let payload = InterfaceRequest version flags
   in Message (header payload) payload
 
+-- | Get the header size in bytes.
+headerSize :: Int
+headerSize = 8
+
+-- | Decode the header.
+decodeHeader :: LBS.ByteString -> Header
+decodeHeader = decode
+
+-- | Decode the protocol payload.
 decodeProtocolPayload :: PayloadType -> LBS.ByteString -> ProtocolPayload
-decodeProtocolPayload payloadType = runGet go
+decodeProtocolPayload payloadType' = runGet go
   where
     go :: Get ProtocolPayload
     go = 
-      case payloadType of
+      case payloadType' of
         InterfaceRequestOp -> decodeInterfaceRequest    
         _                  -> error "Unsupported payload type"
         
