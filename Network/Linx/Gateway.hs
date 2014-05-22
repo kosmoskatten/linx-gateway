@@ -44,6 +44,10 @@ create name hostname port = do
   
   LBS.hPut hGw (encode $ mkCreateRequest name)
   crReplyHeader <- decodeHeader <$> LBS.hGet hGw headerSize
+  let (Length len2) = payloadLength crReplyHeader
+  crReplyPayload <- decodeProtocolPayload (payloadType crReplyHeader)
+                      <$> LBS.hGet hGw (fromIntegral len2)
   print crReplyHeader
+  print crReplyPayload
   
   return $ Gateway hGw (payloadTypes ifcReplyPayload)
