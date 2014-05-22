@@ -9,10 +9,12 @@ module Network.Linx.Gateway.Message
        , Flags (..)
        , CString (..)
        , User (..)
+       , Pid (..)
        , encode
        , mkInterfaceRequest
        , mkInterfaceReply
        , mkCreateRequest
+       , mkCreateReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -51,6 +53,9 @@ data ProtocolPayload =
                    , payloadTypes :: ![PayloadType] }
   | CreateRequest { user   :: !User
                   , myName :: !CString }
+  | CreateReply { status     :: !Status
+                , pid        :: !Pid
+                , maxSigSize :: !Length }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -109,6 +114,10 @@ newtype CString = CString LBSC.ByteString
 -- | User identifier (always zero).
 data User = AlwaysZero
   deriving (Show, Eq)
+           
+-- | Process identifier for a Linx process.
+newtype Pid = Pid Int32
+  deriving (Show, Eq, Generic)
 
 -- | Payload class. To be implemented by ProtocolPayload.
 class Payload a where
@@ -124,10 +133,12 @@ instance Payload ProtocolPayload where
     let (CString lbs) = myName msg
         len           = Length $ 4 + (fromIntegral $ LBS.length lbs) + 1
     in Header CreateRequestOp len
+  header CreateReply {}        = Header CreateReplyOp (Length 12)
 
 -- | Generic binary instances.
 instance Binary Header
 instance Binary Length
+instance Binary Pid
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -143,6 +154,8 @@ instance Binary ProtocolPayload where
     put (status msg) >> put (version msg) >> put (flags msg) 
                      >> put (typesLen msg) >> putList (payloadTypes msg)
   put msg@CreateRequest {}    = put (user msg) >> put (myName msg)
+  put msg@CreateReply {}      = 
+    put (status msg) >> put (pid msg) >> put (maxSigSize msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -271,6 +284,12 @@ mkCreateRequest name =
       payload = CreateRequest AlwaysZero cstring
   in Message (header payload) payload
 
+-- | Make a 'CreateReply' message.
+mkCreateReply :: Pid -> Length -> Message
+mkCreateReply pid' maxSigSize' =
+  let payload = CreateReply Success pid' maxSigSize'
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Int
 headerSize = 8
@@ -289,6 +308,7 @@ decodeProtocolPayload payloadType' = runGet go
         InterfaceRequestOp -> decodeInterfaceRequest
         InterfaceReplyOp   -> decodeInterfaceReply
         CreateRequestOp    -> decodeCreateRequest
+        CreateReplyOp      -> decodeCreateReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -305,6 +325,9 @@ decodeInterfaceReply = do
   
 decodeCreateRequest :: Get ProtocolPayload
 decodeCreateRequest = CreateRequest <$> get <*> get
+
+decodeCreateReply :: Get ProtocolPayload
+decodeCreateReply = CreateReply <$> get <*> get <*> get
 
 getInt32 :: Get Int32
 getInt32 = get

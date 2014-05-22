@@ -2,7 +2,6 @@ module MessageProperties where
 
 import Control.Applicative ((<$>), (<*>), pure)
 import Data.Binary
-import Data.Int
 import qualified Data.ByteString.Lazy as LBS
 import Test.QuickCheck hiding (Success)
 import Network.Linx.Gateway.Message
@@ -14,6 +13,12 @@ instance Arbitrary Flags where
   arbitrary = oneof [ pure BigEndian
                     , pure LittleEndian
                     , Flags <$> choose (2, 99) ]
+              
+instance Arbitrary Length where
+  arbitrary = Length <$> choose (1, maxBound)
+
+instance Arbitrary Pid where
+  arbitrary = Pid <$> choose (1, maxBound)
               
 instance Arbitrary PayloadType where
   arbitrary = elements [ InterfaceRequestOp
@@ -38,7 +43,8 @@ instance Arbitrary PayloadType where
 instance Arbitrary Message where
   arbitrary = oneof [ interfaceRequest
                     , interfaceReply
-                    , createRequest ]
+                    , createRequest 
+                    , createReply ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -49,6 +55,9 @@ interfaceReply =
   
 createRequest :: Gen Message
 createRequest = mkCreateRequest <$> clientName
+
+createReply :: Gen Message
+createReply = mkCreateReply <$> arbitrary <*> arbitrary
 
 clientName :: Gen String
 clientName = listOf1 (elements $ ['a'..'z']++['A'..'Z'])
