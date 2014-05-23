@@ -3,6 +3,7 @@ module Network.Linx.Gateway
        , HostName
        , PortID (..)
        , create
+       , destroy
        ) where
 
 import Control.Applicative ((<$>))
@@ -20,6 +21,7 @@ import Network.Linx.Gateway.Message
   , encode
   , mkInterfaceRequest
   , mkCreateRequest
+  , mkDestroyRequest
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
@@ -52,6 +54,14 @@ create name hostname port = do
   return $ Gateway hGw (pid crReplyPayload)
                        (maxSigSize crReplyPayload)
                        (payloadTypes ifcReplyPayload)
+
+-- | Destroy a client.
+destroy :: Gateway -> IO ()
+destroy gw = do
+  reply <- expectPayload (handle gw) 
+             =<< (talkGateway (handle gw) $ mkDestroyRequest (process gw))
+  print reply
+  return ()
 
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do
