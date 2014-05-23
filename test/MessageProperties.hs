@@ -44,7 +44,9 @@ instance Arbitrary Message where
   arbitrary = oneof [ interfaceRequest
                     , interfaceReply
                     , createRequest 
-                    , createReply ]
+                    , createReply 
+                    , destroyRequest
+                    , destroyReply ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -58,6 +60,12 @@ createRequest = mkCreateRequest <$> clientName
 
 createReply :: Gen Message
 createReply = mkCreateReply <$> arbitrary <*> arbitrary
+
+destroyRequest :: Gen Message
+destroyRequest = mkDestroyRequest <$> arbitrary
+
+destroyReply :: Gen Message
+destroyReply = return mkDestroyReply
 
 clientName :: Gen String
 clientName = listOf1 (elements $ ['a'..'z']++['A'..'Z'])

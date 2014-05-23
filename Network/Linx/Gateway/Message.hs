@@ -15,6 +15,8 @@ module Network.Linx.Gateway.Message
        , mkInterfaceReply
        , mkCreateRequest
        , mkCreateReply
+       , mkDestroyRequest
+       , mkDestroyReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -56,6 +58,11 @@ data ProtocolPayload =
   | CreateReply { status     :: !Status
                 , pid        :: !Pid
                 , maxSigSize :: !Length }
+    
+  -- This record is used to remove a "client" instance on the server,
+  -- i.e. end the session that was started with the create request.
+  | DestroyRequest { pid :: !Pid }
+  | DestroyReply   {status :: !Status}
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -134,6 +141,8 @@ instance Payload ProtocolPayload where
         len           = Length $ 4 + (fromIntegral $ LBS.length lbs) + 1
     in Header CreateRequestOp len
   header CreateReply {}        = Header CreateReplyOp (Length 12)
+  header DestroyRequest {}     = Header DestroyRequestOp (Length 4)
+  header DestroyReply {}       = Header DestroyReplyOp (Length 4)
 
 -- | Generic binary instances.
 instance Binary Header
@@ -156,6 +165,8 @@ instance Binary ProtocolPayload where
   put msg@CreateRequest {}    = put (user msg) >> put (myName msg)
   put msg@CreateReply {}      = 
     put (status msg) >> put (pid msg) >> put (maxSigSize msg)
+  put msg@DestroyRequest {}   = put (pid msg)
+  put msg@DestroyReply {}     = put (status msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -290,6 +301,18 @@ mkCreateReply pid' maxSigSize' =
   let payload = CreateReply Success pid' maxSigSize'
   in Message (header payload) payload
 
+-- | Make a 'DestroyRequest' message.
+mkDestroyRequest :: Pid -> Message
+mkDestroyRequest pid' =
+  let payload = DestroyRequest pid'
+  in Message (header payload) payload
+     
+-- | Make a 'DestroyReply' message.
+mkDestroyReply :: Message
+mkDestroyReply =
+  let payload = DestroyReply Success
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -309,6 +332,8 @@ decodeProtocolPayload payloadType' = runGet go
         InterfaceReplyOp   -> decodeInterfaceReply
         CreateRequestOp    -> decodeCreateRequest
         CreateReplyOp      -> decodeCreateReply
+        DestroyRequestOp   -> decodeDestroyRequest
+        DestroyReplyOp     -> decodeDestroyReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -328,6 +353,12 @@ decodeCreateRequest = CreateRequest <$> get <*> get
 
 decodeCreateReply :: Get ProtocolPayload
 decodeCreateReply = CreateReply <$> get <*> get <*> get
+
+decodeDestroyRequest :: Get ProtocolPayload
+decodeDestroyRequest = DestroyRequest <$> get
+
+decodeDestroyReply :: Get ProtocolPayload
+decodeDestroyReply = DestroyReply <$> get
 
 getInt32 :: Get Int32
 getInt32 = get
