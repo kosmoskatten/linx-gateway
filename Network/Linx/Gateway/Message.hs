@@ -291,8 +291,8 @@ mkCreateReply pid' maxSigSize' =
   in Message (header payload) payload
 
 -- | Get the header size in bytes.
-headerSize :: Int
-headerSize = 8
+headerSize :: Length
+headerSize = Length 8
 
 -- | Decode the header.
 decodeHeader :: LBS.ByteString -> Header
