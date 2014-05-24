@@ -12,10 +12,6 @@ import Network (HostName, PortID (..), connectTo)
 import Network.Linx.Gateway.Message
   ( Message (..)
   , Header (..)
-  , Version (..)
-  , Flags (..)
-  , Length (..)
-  , Pid
   , ProtocolPayload (..)
   , PayloadType (..)
   , encode
@@ -25,6 +21,12 @@ import Network.Linx.Gateway.Message
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
+  )
+import Network.Linx.Gateway.Types
+  ( Version (..)
+  , Flags (..)
+  , Length (..)
+  , Pid
   )
 import System.IO (Handle)
   

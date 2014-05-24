@@ -5,6 +5,7 @@ import Data.Binary
 import qualified Data.ByteString.Lazy as LBS
 import Test.QuickCheck hiding (Success)
 import Network.Linx.Gateway.Message
+import Network.Linx.Gateway.Types
 
 instance Arbitrary Version where
   arbitrary = oneof [ pure V100, Version <$> choose (1, 99) ]

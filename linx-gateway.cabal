@@ -19,7 +19,8 @@ cabal-version:       >=1.20
 library
   exposed-modules:     Network.Linx.Gateway
                        , Network.Linx.Gateway.Message
-  -- other-modules:       
+                       , Network.Linx.Gateway.Types
+  other-modules:       Network.Linx.Gateway.BinaryInt32
   -- other-extensions:    
   build-depends:       base >=4.6 && <4.7
                        , binary >= 0.6 && <0.7.2

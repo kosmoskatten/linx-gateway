@@ -4,12 +4,6 @@ module Network.Linx.Gateway.Message
        , Header (..)
        , ProtocolPayload (..)
        , PayloadType (..)
-       , Length (..)
-       , Version (..)
-       , Flags (..)
-       , CString (..)
-       , User (..)
-       , Pid (..)
        , encode
        , mkInterfaceRequest
        , mkInterfaceReply
@@ -25,12 +19,24 @@ module Network.Linx.Gateway.Message
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
 import Data.Binary
-import Data.Binary.Get (runGet, getLazyByteStringNul)
-import Data.Binary.Put (putLazyByteString)
-import Data.Int
+import Data.Binary.Get (runGet)
 import GHC.Generics
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString.Lazy.Char8 as LBSC
+
+import Network.Linx.Gateway.BinaryInt32
+  ( getInt32
+  , putInt32
+  )
+import Network.Linx.Gateway.Types
+  ( Status (..)
+  , Length (..)
+  , Version (..)
+  , Flags (..)
+  , CString (..)
+  , User (..)
+  , Pid (..)
+  , mkCString
+  )
 
 -- | Message.
 data Message =
@@ -91,44 +97,12 @@ data PayloadType =
   | NameReplyOp
   deriving (Show, Eq)
            
--- | Status indicator           
-data Status =
-    Success
-  | Error
-  deriving (Show, Eq)
-           
--- | Length descriptor.
-newtype Length = Length Int32
-  deriving (Show, Eq, Generic)
-           
--- | Version descriptor.
-data Version =
-    V100
-  | Version !Int32
-  deriving (Show, Eq)
-           
--- | Flags descriptor.
-data Flags =
-    BigEndian
-  | LittleEndian
-  | Flags !Int32
-  deriving (Show, Eq)
-           
--- | Null terminated C-string.
-newtype CString = CString LBSC.ByteString
-  deriving (Show, Eq)
-
--- | User identifier (always zero).
-data User = AlwaysZero
-  deriving (Show, Eq)
-           
--- | Process identifier for a Linx process.
-newtype Pid = Pid Int32
-  deriving (Show, Eq, Generic)
-
 -- | Payload class. To be implemented by ProtocolPayload.
 class Payload a where
   header :: a -> Header
+
+-- | Generic binary instances.
+instance Binary Header
 
 instance Payload ProtocolPayload where
   header FailedRequest         = error "Shall not be called this way"
@@ -143,11 +117,6 @@ instance Payload ProtocolPayload where
   header CreateReply {}        = Header CreateReplyOp (Length 12)
   header DestroyRequest {}     = Header DestroyRequestOp (Length 4)
   header DestroyReply {}       = Header DestroyReplyOp (Length 4)
-
--- | Generic binary instances.
-instance Binary Header
-instance Binary Length
-instance Binary Pid
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -221,60 +190,6 @@ instance Binary PayloadType where
   put NameRequestOp       = putInt32 21
   put NameReplyOp         = putInt32 22
 
--- | Binary instance for 'Status'.
-instance Binary Status where
-  get = do
-    value <- getInt32
-    return $
-      case value of
-        0 -> Success
-        _ -> Error
-        
-  put Success = putInt32 0
-  put Error   = putInt32 (-1)
-
--- | Binary instance for 'Version'.
-instance Binary Version where
-  get = do
-    value <- getInt32
-    return $
-      case value of
-        100 -> V100
-        _   -> Version value
-  
-  put V100            = putInt32 100
-  put (Version value) = put value
-        
--- | Binary instance for 'Flags'.
-instance Binary Flags where
-  get = do
-    value <- getInt32
-    return $
-      case value of
-        0 -> BigEndian
-        1 -> LittleEndian
-        _ -> Flags value
-        
-  put BigEndian     = putInt32 0
-  put LittleEndian  = putInt32 1
-  put (Flags value) = put value
-
--- | Binary instance for 'CString'.
-instance Binary CString where
-  get = CString <$> getLazyByteStringNul
-  put (CString lbs) = putLazyByteString lbs >> putWord8 0
-  
--- | Binary instance for 'User'.
-instance Binary User where
-  get = do
-    value <- getInt32
-    return $
-      case value of
-        0 -> AlwaysZero
-        _ -> error $ "Unexpected user value: " ++ show value
-  
-  put AlwaysZero = putInt32 0
-
 -- | Make an 'InterfaceRequest' message.
 mkInterfaceRequest :: Version -> Flags -> Message
 mkInterfaceRequest version' flags' =
@@ -291,7 +206,7 @@ mkInterfaceReply version' flags' types =
 -- | Make a 'CreateRequest' message.
 mkCreateRequest :: String -> Message
 mkCreateRequest name =
-  let cstring = CString $ LBSC.pack name
+  let cstring = mkCString name
       payload = CreateRequest AlwaysZero cstring
   in Message (header payload) payload
 
@@ -359,12 +274,6 @@ decodeDestroyRequest = DestroyRequest <$> get
 
 decodeDestroyReply :: Get ProtocolPayload
 decodeDestroyReply = DestroyReply <$> get
-
-getInt32 :: Get Int32
-getInt32 = get
-  
-putInt32 :: Int32 -> Put
-putInt32 = put
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
