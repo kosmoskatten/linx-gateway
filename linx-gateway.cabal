@@ -19,6 +19,7 @@ cabal-version:       >=1.20
 library
   exposed-modules:     Network.Linx.Gateway
                        , Network.Linx.Gateway.Message
+                       , Network.Linx.Gateway.Signal
                        , Network.Linx.Gateway.Types
   other-modules:       Network.Linx.Gateway.BinaryInt32
   -- other-extensions:    

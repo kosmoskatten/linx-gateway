@@ -2,6 +2,7 @@
 module Network.Linx.Gateway.Types
        ( Status (..)
        , Length (..)
+       , SigNo (..)
        , Version (..)
        , Flags (..)
        , CString (..)
@@ -26,6 +27,10 @@ data Status =
            
 -- | Length descriptor.
 newtype Length = Length Int32
+  deriving (Show, Eq, Generic)
+           
+-- | Signal number descriptor.           
+newtype SigNo = SigNo Int32
   deriving (Show, Eq, Generic)
            
 -- | Version descriptor.
@@ -55,6 +60,7 @@ newtype Pid = Pid Int32
            
 -- | Generic binary instances.
 instance Binary Length
+instance Binary SigNo
 instance Binary Pid
 
 -- | Binary instance for 'Status'.
