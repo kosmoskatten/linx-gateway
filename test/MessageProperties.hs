@@ -7,6 +7,8 @@ import Test.QuickCheck hiding (Success)
 import Network.Linx.Gateway.Message
 import Network.Linx.Gateway.Types
 
+import SignalProperties ()
+
 instance Arbitrary Version where
   arbitrary = oneof [ pure V100, Version <$> choose (1, 99) ]
 
@@ -21,6 +23,9 @@ instance Arbitrary Length where
 instance Arbitrary Pid where
   arbitrary = Pid <$> choose (1, maxBound)
               
+instance Arbitrary CString where
+  arbitrary = mkCString <$> string
+
 instance Arbitrary PayloadType where
   arbitrary = elements [ InterfaceRequestOp
                        , InterfaceReplyOp
@@ -47,7 +52,8 @@ instance Arbitrary Message where
                     , createRequest 
                     , createReply 
                     , destroyRequest
-                    , destroyReply ]
+                    , destroyReply 
+                    , huntRequest ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -68,8 +74,14 @@ destroyRequest = mkDestroyRequest <$> arbitrary
 destroyReply :: Gen Message
 destroyReply = return mkDestroyReply
 
+huntRequest :: Gen Message
+huntRequest = mkHuntRequest <$> arbitrary <*> arbitrary
+
 clientName :: Gen String
-clientName = listOf1 (elements $ ['a'..'z']++['A'..'Z'])
+clientName = string
+
+string :: Gen String
+string = listOf1 (elements $ ['a'..'z']++['A'..'Z'])
 
 prop_message :: Message -> Bool
 prop_message message@(Message _ msgPayload) =

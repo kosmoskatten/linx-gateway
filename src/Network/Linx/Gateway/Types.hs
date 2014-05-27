@@ -2,6 +2,7 @@
 module Network.Linx.Gateway.Types
        ( Status (..)
        , Length (..)
+       , Index (..)
        , SigNo (..)
        , Version (..)
        , Flags (..)
@@ -9,6 +10,7 @@ module Network.Linx.Gateway.Types
        , User (..)
        , Pid (..)
        , mkCString
+       , cstrlen
        ) where
 
 import Control.Applicative ((<$>))
@@ -29,6 +31,10 @@ data Status =
 newtype Length = Length Int32
   deriving (Show, Eq, Generic)
            
+-- | Index descriptor.
+newtype Index = Index Int32
+  deriving (Show, Eq, Generic)
+
 -- | Signal number descriptor.           
 newtype SigNo = SigNo Int32
   deriving (Show, Eq, Generic)
@@ -60,6 +66,7 @@ newtype Pid = Pid Int32
            
 -- | Generic binary instances.
 instance Binary Length
+instance Binary Index
 instance Binary SigNo
 instance Binary Pid
 
@@ -120,3 +127,7 @@ instance Binary User where
 -- | Make a CString.
 mkCString :: String -> CString
 mkCString = CString . LBS.pack
+
+-- | Calculate the length of a CString
+cstrlen :: CString -> Length
+cstrlen (CString lbs) = Length $ fromIntegral (LBS.length lbs) + 1

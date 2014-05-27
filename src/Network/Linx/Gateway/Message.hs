@@ -11,6 +11,7 @@ module Network.Linx.Gateway.Message
        , mkCreateReply
        , mkDestroyRequest
        , mkDestroyReply
+       , mkHuntRequest
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -30,12 +31,18 @@ import Network.Linx.Gateway.BinaryInt32
 import Network.Linx.Gateway.Types
   ( Status (..)
   , Length (..)
+  , Index (..)
   , Version (..)
   , Flags (..)
   , CString (..)
   , User (..)
   , Pid (..)
   , mkCString
+  , cstrlen
+  )
+import Network.Linx.Gateway.Signal
+  ( Signal (..)
+  , sigSize
   )
 
 -- | Message.
@@ -65,10 +72,18 @@ data ProtocolPayload =
                 , pid        :: !Pid
                 , maxSigSize :: !Length }
     
-  -- This record is used to remove a "client" instance on the server,
+  -- This request is used to remove a "client" instance on the server,
   -- i.e. end the session that was started with the create request.
   | DestroyRequest { pid :: !Pid }
   | DestroyReply   {status :: !Status}
+    
+  -- This request is to used to ask the gateway server to execute a
+  -- hunt call.
+  | HuntRequest { user      :: !User
+                , nameIndex :: !Index
+                , sigIndex  :: !Index
+                , signal    :: !Signal
+                , huntName  :: !CString }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -117,6 +132,10 @@ instance Payload ProtocolPayload where
   header CreateReply {}        = Header CreateReplyOp (Length 12)
   header DestroyRequest {}     = Header DestroyRequestOp (Length 4)
   header DestroyReply {}       = Header DestroyReplyOp (Length 4)
+  header msg@HuntRequest {}    =
+    let Length huntNameLen = cstrlen (huntName msg)
+        Length sigSize'    = sigSize (signal msg)
+    in Header HuntRequestOp (Length $ 12 + sigSize' + huntNameLen)
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -136,6 +155,9 @@ instance Binary ProtocolPayload where
     put (status msg) >> put (pid msg) >> put (maxSigSize msg)
   put msg@DestroyRequest {}   = put (pid msg)
   put msg@DestroyReply {}     = put (status msg)
+  put msg@HuntRequest {}      =
+    put (user msg) >> put (nameIndex msg) >> put (sigIndex msg)
+                   >> put (signal msg) >> put (huntName msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -228,6 +250,21 @@ mkDestroyReply =
   let payload = DestroyReply Success
   in Message (header payload) payload
 
+-- | Make a 'HuntRequest' message.
+mkHuntRequest :: Signal -> CString -> Message
+mkHuntRequest signal' huntName' =
+  let nameIndex' = calcNameIndex signal'
+      sigIndex'  = Index 0
+      payload    = HuntRequest AlwaysZero nameIndex' sigIndex' signal' huntName'
+  in Message (header payload) payload
+  where
+    calcNameIndex :: Signal -> Index
+    calcNameIndex NoSignal         = Index 0
+    calcNameIndex NumericSignal {} = Index 0
+    calcNameIndex sig              = 
+      let Length len = sigSize sig
+      in Index $ len - 8
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -249,6 +286,7 @@ decodeProtocolPayload payloadType' = runGet go
         CreateReplyOp      -> decodeCreateReply
         DestroyRequestOp   -> decodeDestroyRequest
         DestroyReplyOp     -> decodeDestroyReply
+        HuntRequestOp      -> decodeHuntRequest
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -274,6 +312,13 @@ decodeDestroyRequest = DestroyRequest <$> get
 
 decodeDestroyReply :: Get ProtocolPayload
 decodeDestroyReply = DestroyReply <$> get
+
+-- The decoding of hunt requests is simplified to only accept a layout
+-- where the hunt name is laid out after the signal data. This is not
+-- any problem for this implementation as it not is implementing the
+-- server role.
+decodeHuntRequest :: Get ProtocolPayload
+decodeHuntRequest = HuntRequest <$> get <*> get <*> get <*> get <*> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
