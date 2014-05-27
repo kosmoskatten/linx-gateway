@@ -43,7 +43,7 @@ import Network.Linx.Gateway.Types
   )
 import Network.Linx.Gateway.Signal
   ( Signal (..)
-  , sigSize
+  , payloadSize
   )
 
 -- | Message.
@@ -144,9 +144,9 @@ instance Payload ProtocolPayload where
   header DestroyRequest {}     = Header DestroyRequestOp (Length 4)
   header DestroyReply {}       = Header DestroyReplyOp (Length 4)
   header msg@HuntRequest {}    =
-    let Length huntNameLen = cstrlen (huntName msg)
-        Length sigSize'    = sigSize (signal msg)
-    in Header HuntRequestOp (Length $ 12 + sigSize' + huntNameLen)
+    let Length huntNameLen  = cstrlen (huntName msg)
+        Length payloadSize' = payloadSize (signal msg)
+    in Header HuntRequestOp (Length $ 12 + payloadSize' + huntNameLen)
   header HuntReply {}          = Header HuntReplyOp (Length 8)
 
 -- | Binary instance for 'Message'.
@@ -275,7 +275,7 @@ mkHuntRequest signal' huntName' =
     calcNameIndex NoSignal         = Index 0
     calcNameIndex NumericSignal {} = Index 0
     calcNameIndex sig              = 
-      let Length len = sigSize sig
+      let Length len = payloadSize sig
       in Index $ len - 8
 
 -- | Make a 'HuntReply' message.

@@ -1,6 +1,6 @@
 module Network.Linx.Gateway.Signal
        ( Signal (..)
-       , sigSize
+       , payloadSize
        , encode
        , decode
        ) where
@@ -20,10 +20,10 @@ data Signal =
   | NoSignal
   deriving (Eq, Show)
 
-sigSize :: Signal -> Length
-sigSize NoSignal         = Length 4
-sigSize NumericSignal {} = Length 8
-sigSize sig@Signal {}    =
+payloadSize :: Signal -> Length
+payloadSize NoSignal         = Length 8
+payloadSize NumericSignal {} = Length 8
+payloadSize sig@Signal {}    =
   let len = LBS.length $ sigData sig
   in Length $ 8 + (fromIntegral len)
 
@@ -31,11 +31,11 @@ instance Binary Signal where
   get                          = do
     Length len <- get
     case len of
-      0 -> return NoSignal
+      0 -> getInt32 >>= \_ -> return NoSignal
       4 -> NumericSignal <$> get
       _ -> Signal <$> get <*> getLazyByteString (fromIntegral len - 4)
   
-  put NoSignal                 = putInt32 0
+  put NoSignal                 = putInt32 0 >> putInt32 0
   put (NumericSignal sigNo')   = putInt32 4 >> put sigNo'
   put (Signal sigNo' sigData') =
     let len = Length (fromIntegral $ LBS.length sigData' + 4)

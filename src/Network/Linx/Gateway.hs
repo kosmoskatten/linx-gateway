@@ -30,7 +30,7 @@ import Network.Linx.Gateway.Types
   ( Version (..)
   , Flags (..)
   , Length (..)
-  , Pid
+  , Pid (..)
   , mkCString
   )
 import System.IO (Handle)
@@ -46,28 +46,19 @@ data Gateway =
 -- | Create a new client instance in the gateway.
 create :: String -> HostName -> PortID -> IO Gateway
 create name hostname port = do
-  hGw <- connectTo hostname port
-  ifcReplyHeader <- talkGateway hGw $ mkInterfaceRequest V100 BigEndian
-  ifcReplyPayload <- expectPayload hGw ifcReplyHeader
+  gw <- connectTo hostname port
+  createReply <- expectPayload gw =<< (talkGateway gw $ mkCreateRequest name)
+  ifReply     <- expectPayload gw =<< (talkGateway gw $ 
+                   mkInterfaceRequest V100 BigEndian)
+  return $ Gateway gw (pid createReply)
+                      (maxSigSize createReply)
+                      (payloadTypes ifReply)
   
-  print ifcReplyHeader
-  print ifcReplyPayload
-  
-  crReplyHeader <- talkGateway hGw $ mkCreateRequest name
-  crReplyPayload <- expectPayload hGw crReplyHeader
-  
-  print crReplyHeader
-  print crReplyPayload
-  return $ Gateway hGw (pid crReplyPayload)
-                       (maxSigSize crReplyPayload)
-                       (payloadTypes ifcReplyPayload)
-
 -- | Destroy a client.
 destroy :: Gateway -> IO ()
 destroy gw = do
-  reply <- expectPayload (handle gw) 
-             =<< (talkGateway (handle gw) $ mkDestroyRequest (process gw))
-  print reply
+  _ <- expectPayload (handle gw) 
+         =<< (talkGateway (handle gw) $ mkDestroyRequest (process gw))
   return ()
 
 -- Ask the gateway server to execute a hunt call. If the hunted
@@ -75,13 +66,14 @@ destroy gw = do
 -- immediately.
 hunt :: Gateway -> String -> Signal -> IO (Maybe Pid)
 hunt gw client signal' = do
-  hReplyHeader <- 
-    talkGateway (handle gw) $ mkHuntRequest signal' (mkCString client)
-    
-  hReplyPayload <- expectPayload (handle gw) hReplyHeader
-  print hReplyHeader
-  print hReplyPayload
-  return Nothing
+  reply <- expectPayload (handle gw)
+             =<< (talkGateway (handle gw) 
+                   $ mkHuntRequest signal' (mkCString client))
+  let pid' = pid reply
+  return $
+    case pid' of
+      Pid 0 -> Nothing
+      _     -> Just pid'
 
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do

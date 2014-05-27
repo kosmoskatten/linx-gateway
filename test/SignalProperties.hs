@@ -20,6 +20,6 @@ sigNo' = SigNo <$> choose (1, 1000000)
 prop_signal :: Signal -> Bool
 prop_signal sig =
   let encodedSignal = encode sig
-      Length len    = sigSize sig
+      Length len    = payloadSize sig
   in (fromIntegral len) == LBS.length encodedSignal
      && sig == decode encodedSignal
