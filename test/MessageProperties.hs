@@ -53,7 +53,8 @@ instance Arbitrary Message where
                     , createReply 
                     , destroyRequest
                     , destroyReply 
-                    , huntRequest ]
+                    , huntRequest 
+                    , huntReply ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -76,6 +77,9 @@ destroyReply = return mkDestroyReply
 
 huntRequest :: Gen Message
 huntRequest = mkHuntRequest <$> arbitrary <*> arbitrary
+
+huntReply :: Gen Message
+huntReply = mkHuntReply <$> arbitrary
 
 clientName :: Gen String
 clientName = string

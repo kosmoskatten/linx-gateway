@@ -12,6 +12,7 @@ module Network.Linx.Gateway.Message
        , mkDestroyRequest
        , mkDestroyReply
        , mkHuntRequest
+       , mkHuntReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -92,6 +93,8 @@ data ProtocolPayload =
                 , sigIndex  :: !Index
                 , signal    :: !Signal
                 , huntName  :: !CString }
+  | HuntReply { status :: !Status
+              , pid    :: !Pid }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -144,6 +147,7 @@ instance Payload ProtocolPayload where
     let Length huntNameLen = cstrlen (huntName msg)
         Length sigSize'    = sigSize (signal msg)
     in Header HuntRequestOp (Length $ 12 + sigSize' + huntNameLen)
+  header HuntReply {}          = Header HuntReplyOp (Length 8)
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -166,6 +170,7 @@ instance Binary ProtocolPayload where
   put msg@HuntRequest {}      =
     put (user msg) >> put (nameIndex msg) >> put (sigIndex msg)
                    >> put (signal msg) >> put (huntName msg)
+  put msg@HuntReply {}        = put (status msg) >> put (pid msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -273,6 +278,12 @@ mkHuntRequest signal' huntName' =
       let Length len = sigSize sig
       in Index $ len - 8
 
+-- | Make a 'HuntReply' message.
+mkHuntReply :: Pid -> Message
+mkHuntReply pid' =
+  let payload = HuntReply Success pid'
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -295,6 +306,7 @@ decodeProtocolPayload payloadType' = runGet go
         DestroyRequestOp   -> decodeDestroyRequest
         DestroyReplyOp     -> decodeDestroyReply
         HuntRequestOp      -> decodeHuntRequest
+        HuntReplyOp        -> decodeHuntReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -327,6 +339,9 @@ decodeDestroyReply = DestroyReply <$> get
 -- server role.
 decodeHuntRequest :: Get ProtocolPayload
 decodeHuntRequest = HuntRequest <$> get <*> get <*> get <*> get <*> get
+
+decodeHuntReply :: Get ProtocolPayload
+decodeHuntReply = HuntReply <$> get <*> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
