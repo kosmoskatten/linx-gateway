@@ -2,8 +2,10 @@ module Network.Linx.Gateway
        ( Gateway (..)
        , HostName
        , PortID (..)
+       , Signal (..)
        , create
        , destroy
+       , hunt
        ) where
 
 import Control.Applicative ((<$>))
@@ -18,15 +20,18 @@ import Network.Linx.Gateway.Message
   , mkInterfaceRequest
   , mkCreateRequest
   , mkDestroyRequest
+  , mkHuntRequest
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
   )
+import Network.Linx.Gateway.Signal (Signal (..))
 import Network.Linx.Gateway.Types
   ( Version (..)
   , Flags (..)
   , Length (..)
   , Pid
+  , mkCString
   )
 import System.IO (Handle)
   
@@ -64,6 +69,19 @@ destroy gw = do
              =<< (talkGateway (handle gw) $ mkDestroyRequest (process gw))
   print reply
   return ()
+
+-- Ask the gateway server to execute a hunt call. If the hunted
+-- process is available at the moment of the hunt its pid is returned
+-- immediately.
+hunt :: Gateway -> String -> Signal -> IO (Maybe Pid)
+hunt gw client signal' = do
+  hReplyHeader <- 
+    talkGateway (handle gw) $ mkHuntRequest signal' (mkCString client)
+    
+  hReplyPayload <- expectPayload (handle gw) hReplyHeader
+  print hReplyHeader
+  print hReplyPayload
+  return Nothing
 
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do
