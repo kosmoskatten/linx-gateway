@@ -59,6 +59,11 @@ data Header =
 -- | Protocol payload.
 data ProtocolPayload =
     FailedRequest
+    
+  -- This request has two puposes. The client sends this request to
+  -- retrieve information about the gateway server, e.g. supported
+  -- requests, protocol verions etc. It is also used as a
+  -- "ping-message" to check that the server is alive [..]"
   | InterfaceRequest { version :: !Version 
                      , flags   :: !Flags }
   | InterfaceReply { status       :: !Status 
@@ -66,6 +71,9 @@ data ProtocolPayload =
                    , flags        :: !Flags 
                    , typesLen     :: !Length 
                    , payloadTypes :: ![PayloadType] }
+    
+  -- This request it used to create a "client" instance on the server
+  -- that the client communicated with."
   | CreateRequest { user   :: !User
                   , myName :: !CString }
   | CreateReply { status     :: !Status
