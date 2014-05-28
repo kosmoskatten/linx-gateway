@@ -13,6 +13,7 @@ module Network.Linx.Gateway.Message
        , mkDestroyReply
        , mkHuntRequest
        , mkHuntReply
+       , mkReceiveRequest
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -33,11 +34,13 @@ import Network.Linx.Gateway.Types
   ( Status (..)
   , Length (..)
   , Index (..)
+  , SigNo (..)
   , Version (..)
   , Flags (..)
   , CString (..)
   , User (..)
   , Pid (..)
+  , Timeout (..)
   , mkCString
   , cstrlen
   )
@@ -95,6 +98,21 @@ data ProtocolPayload =
                 , huntName  :: !CString }
   | HuntReply { status :: !Status
               , pid    :: !Pid }
+    
+  -- This request is used to ask the server to execute a receive or
+  -- receive_w_tmo call. It differs from other requests, because the
+  -- client may send a second receive request or an interface request
+  -- before it has received the reply from the previous receive
+  -- request. The client may send a second receive request to cancel
+  -- the first one. Beware that server may already have sent a receive
+  -- reply before the "cancel request" was received, in this case the
+  -- client must also wait for the "cancel reply". The client may send
+  -- an interface request to the server, which returns an interface
+  -- reply. This is used by the client to detect if the server has
+  -- died while waiting for a receive reply.
+  | ReceiveRequest { timeout    :: !Timeout
+                   , sigselLen  :: !Length
+                   , sigselList :: ![SigNo] }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -135,7 +153,7 @@ instance Payload ProtocolPayload where
   header InterfaceRequest {}   = Header InterfaceRequestOp (Length 8)
   header msg@InterfaceReply {} = 
     let (Length len) = typesLen msg
-    in Header InterfaceReplyOp (Length $ 16 + (4 * len))
+    in Header InterfaceReplyOp (Length $ 16 + 4 * len)
   header msg@CreateRequest {}  = 
     let (CString lbs) = myName msg
         len           = Length $ 4 + (fromIntegral $ LBS.length lbs) + 1
@@ -148,6 +166,9 @@ instance Payload ProtocolPayload where
         Length payloadSize' = payloadSize (signal msg)
     in Header HuntRequestOp (Length $ 12 + payloadSize' + huntNameLen)
   header HuntReply {}          = Header HuntReplyOp (Length 8)
+  header msg@ReceiveRequest {} =
+    let Length sigselLen' = sigselLen msg
+    in Header ReceiveRequestOp (Length $ 8 + 4 * sigselLen')
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -171,6 +192,8 @@ instance Binary ProtocolPayload where
     put (user msg) >> put (nameIndex msg) >> put (sigIndex msg)
                    >> put (signal msg) >> put (huntName msg)
   put msg@HuntReply {}        = put (status msg) >> put (pid msg)
+  put msg@ReceiveRequest {}   = put (timeout msg) >> put (sigselLen msg)
+                                                  >> putList (sigselList msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -284,6 +307,13 @@ mkHuntReply pid' =
   let payload = HuntReply Success pid'
   in Message (header payload) payload
 
+-- | Make a 'ReceiveRequest' message.
+mkReceiveRequest :: Timeout -> [SigNo] -> Message
+mkReceiveRequest tmo sigNos =
+  let sigselLen' = Length $ fromIntegral (length sigNos)
+      payload    = ReceiveRequest tmo sigselLen' sigNos
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -307,6 +337,7 @@ decodeProtocolPayload payloadType' = runGet go
         DestroyReplyOp     -> decodeDestroyReply
         HuntRequestOp      -> decodeHuntRequest
         HuntReplyOp        -> decodeHuntReply
+        ReceiveRequestOp   -> decodeReceiveRequest
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -342,6 +373,13 @@ decodeHuntRequest = HuntRequest <$> get <*> get <*> get <*> get <*> get
 
 decodeHuntReply :: Get ProtocolPayload
 decodeHuntReply = HuntReply <$> get <*> get
+
+decodeReceiveRequest :: Get ProtocolPayload
+decodeReceiveRequest = do
+  timeout'    <- get
+  sigselLen'  <- get
+  sigselList' <- getList sigselLen'
+  return $ ReceiveRequest timeout' sigselLen' sigselList'  
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put

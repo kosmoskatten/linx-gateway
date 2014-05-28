@@ -23,8 +23,15 @@ instance Arbitrary Length where
 instance Arbitrary Pid where
   arbitrary = Pid <$> choose (1, maxBound)
               
+instance Arbitrary SigNo where
+  arbitrary = SigNo <$> choose (1, maxBound)
+
 instance Arbitrary CString where
   arbitrary = mkCString <$> string
+
+instance Arbitrary Timeout where
+  arbitrary = frequency [ (1, pure Infinite)
+                        , (5, Timeout <$> choose (1, maxBound)) ]
 
 instance Arbitrary PayloadType where
   arbitrary = elements [ InterfaceRequestOp
@@ -54,7 +61,8 @@ instance Arbitrary Message where
                     , destroyRequest
                     , destroyReply 
                     , huntRequest 
-                    , huntReply ]
+                    , huntReply 
+                    , receiveRequest ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -80,6 +88,9 @@ huntRequest = mkHuntRequest <$> arbitrary <*> arbitrary
 
 huntReply :: Gen Message
 huntReply = mkHuntReply <$> arbitrary
+
+receiveRequest :: Gen Message
+receiveRequest = mkReceiveRequest <$> arbitrary <*> arbitrary
 
 clientName :: Gen String
 clientName = string

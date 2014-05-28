@@ -9,6 +9,7 @@ module Network.Linx.Gateway.Types
        , CString (..)
        , User (..)
        , Pid (..)
+       , Timeout (..)
        , mkCString
        , cstrlen
        ) where
@@ -64,6 +65,12 @@ data User = AlwaysZero
 newtype Pid = Pid Int32
   deriving (Show, Eq, Generic)
            
+-- | Timeout value.
+data Timeout =
+    Infinite
+  | Timeout Int32
+  deriving (Eq, Show)
+
 -- | Generic binary instances.
 instance Binary Length
 instance Binary Index
@@ -123,6 +130,18 @@ instance Binary User where
         _ -> error $ "Unexpected user value: " ++ show value
   
   put AlwaysZero = putInt32 0
+  
+-- | Binary instance for 'Timeout'.
+instance Binary Timeout where
+  get = do
+    value <- getInt32
+    return $
+      case value of
+        (-1) -> Infinite
+        _    -> Timeout value
+        
+  put Infinite        = putInt32 (-1)
+  put (Timeout value) = put value
   
 -- | Make a CString.
 mkCString :: String -> CString
