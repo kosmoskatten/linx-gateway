@@ -15,6 +15,7 @@ module Network.Linx.Gateway.Message
        , mkHuntReply
        , mkReceiveRequest
        , mkReceiveReply
+       , mkSendRequest
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -118,6 +119,12 @@ data ProtocolPayload =
                  , senderPid    :: !Pid
                  , addresseePid :: !Pid
                  , signal       :: !Signal }
+    
+  -- | This request is used to ask the gateway server to execute a
+  -- send or send_w_s call.
+  | SendRequest { fromPid :: !Pid
+                , destPid :: !Pid
+                , signal  :: !Signal }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -177,6 +184,9 @@ instance Payload ProtocolPayload where
   header msg@ReceiveReply {}   =
     let Length payloadSize' = payloadSize (signal msg)
     in Header ReceiveReplyOp (Length $ 12 + payloadSize')
+  header msg@SendRequest {}    =
+    let Length payloadSize' = payloadSize (signal msg)
+    in Header SendRequestOp (Length $ 8 + payloadSize')
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -205,6 +215,8 @@ instance Binary ProtocolPayload where
   put msg@ReceiveReply {}     = put (status msg) >> put (senderPid msg)
                                                  >> put (addresseePid msg)
                                                  >> put (signal msg)
+  put msg@SendRequest {}      = put (fromPid msg) >> put (destPid msg)
+                                                  >> put (signal msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -331,6 +343,12 @@ mkReceiveReply senderPid' addresseePid' signal' =
   let payload = ReceiveReply Success senderPid' addresseePid' signal'
   in Message (header payload) payload
 
+-- | Make a 'SendRequest' message.
+mkSendRequest :: Pid -> Pid -> Signal -> Message
+mkSendRequest fromPid' destPid' signal' =
+  let payload = SendRequest fromPid' destPid' signal'
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -356,6 +374,7 @@ decodeProtocolPayload payloadType' = runGet go
         HuntReplyOp        -> decodeHuntReply
         ReceiveRequestOp   -> decodeReceiveRequest
         ReceiveReplyOp     -> decodeReceiveReply
+        SendRequestOp      -> decodeSendRequest
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -401,6 +420,9 @@ decodeReceiveRequest = do
 
 decodeReceiveReply :: Get ProtocolPayload
 decodeReceiveReply = ReceiveReply <$> get <*> get <*> get <*> get
+
+decodeSendRequest :: Get ProtocolPayload
+decodeSendRequest = SendRequest <$> get <*> get <*> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put

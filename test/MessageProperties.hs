@@ -63,7 +63,8 @@ instance Arbitrary Message where
                     , huntRequest 
                     , huntReply 
                     , receiveRequest 
-                    , receiveReply ]
+                    , receiveReply 
+                    , sendRequest ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -95,6 +96,9 @@ receiveRequest = mkReceiveRequest <$> arbitrary <*> arbitrary
 
 receiveReply :: Gen Message
 receiveReply = mkReceiveReply <$> arbitrary <*> arbitrary <*> arbitrary
+
+sendRequest :: Gen Message
+sendRequest = mkSendRequest <$> arbitrary <*> arbitrary <*> arbitrary
 
 clientName :: Gen String
 clientName = string
