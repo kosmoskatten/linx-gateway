@@ -17,6 +17,8 @@ module Network.Linx.Gateway.Message
        , mkReceiveReply
        , mkSendRequest
        , mkSendReply
+       , mkAttachRequest
+       , mkAttachReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -44,6 +46,7 @@ import Network.Linx.Gateway.Types
   , User (..)
   , Pid (..)
   , Timeout (..)
+  , Attref (..)
   , mkCString
   , cstrlen
   )
@@ -67,7 +70,7 @@ data Header =
 data ProtocolPayload =
     FailedRequest
     
-  -- This request has two puposes. The client sends this request to
+  -- | This request has two puposes. The client sends this request to
   -- retrieve information about the gateway server, e.g. supported
   -- requests, protocol verions etc. It is also used as a
   -- "ping-message" to check that the server is alive [..]"
@@ -79,7 +82,7 @@ data ProtocolPayload =
                    , typesLen     :: !Length 
                    , payloadTypes :: ![PayloadType] }
     
-  -- This request it used to create a "client" instance on the server
+  -- | This request it used to create a "client" instance on the server
   -- that the client communicated with."
   | CreateRequest { user   :: !User
                   , myName :: !CString }
@@ -87,12 +90,12 @@ data ProtocolPayload =
                 , pid        :: !Pid
                 , maxSigSize :: !Length }
     
-  -- This request is used to remove a "client" instance on the server,
+  -- | This request is used to remove a "client" instance on the server,
   -- i.e. end the session that was started with the create request.
   | DestroyRequest { pid :: !Pid }
   | DestroyReply   {status :: !Status}
     
-  -- This request is to used to ask the gateway server to execute a
+  -- | This request is to used to ask the gateway server to execute a
   -- hunt call.
   | HuntRequest { user      :: !User
                 , nameIndex :: !Index
@@ -102,7 +105,7 @@ data ProtocolPayload =
   | HuntReply { status :: !Status
               , pid    :: !Pid }
     
-  -- This request is used to ask the server to execute a receive or
+  -- | This request is used to ask the server to execute a receive or
   -- receive_w_tmo call. It differs from other requests, because the
   -- client may send a second receive request or an interface request
   -- before it has received the reply from the previous receive
@@ -127,6 +130,13 @@ data ProtocolPayload =
                 , destPid :: !Pid
                 , signal  :: !Signal }
   | SendReply { status :: !Status }
+    
+  -- | This request is used to ask the gateway server to execute an
+  -- attach call.
+  | AttachRequest { pid :: !Pid
+                  , signal :: !Signal }
+  | AttachReply { status :: !Status
+                , attref :: !Attref }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -134,7 +144,7 @@ data PayloadType =
     InterfaceRequestOp
   | InterfaceReplyOp
   | LoginRequestOp
-  | ChallengeResponseOp    
+  | ChallengeResponseOp
   | ChallengeReplyOp
   | LoginReplyOp
   | CreateRequestOp
@@ -190,6 +200,10 @@ instance Payload ProtocolPayload where
     let Length payloadSize' = payloadSize (signal msg)
     in Header SendRequestOp (Length $ 8 + payloadSize')
   header SendReply {}          = Header SendReplyOp (Length 4)
+  header msg@AttachRequest {}  =
+    let Length payloadSize' = payloadSize (signal msg)
+    in Header AttachRequestOp (Length $ 4 + payloadSize')
+  header AttachReply {}        = Header AttachReplyOp (Length 8)
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -221,6 +235,8 @@ instance Binary ProtocolPayload where
   put msg@SendRequest {}      = put (fromPid msg) >> put (destPid msg)
                                                   >> put (signal msg)
   put msg@SendReply {}        = put (status msg)
+  put msg@AttachRequest {}    = put (pid msg) >> put (signal msg)
+  put msg@AttachReply {}      = put (status msg) >> put (attref msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -359,6 +375,18 @@ mkSendReply =
   let payload = SendReply Success
   in Message (header payload) payload
 
+-- | Make 'AttachRequest' message.
+mkAttachRequest :: Pid -> Signal -> Message
+mkAttachRequest pid' signal' =
+  let payload = AttachRequest pid' signal'
+  in Message (header payload) payload
+
+-- | Make 'AttachReply' message.
+mkAttachReply :: Attref -> Message
+mkAttachReply attref' =
+  let payload = AttachReply Success attref'
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -386,6 +414,8 @@ decodeProtocolPayload payloadType' = runGet go
         ReceiveReplyOp     -> decodeReceiveReply
         SendRequestOp      -> decodeSendRequest
         SendReplyOp        -> decodeSendReply
+        AttachRequestOp    -> decodeAttachRequest
+        AttachReplyOp      -> decodeAttachReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -437,6 +467,12 @@ decodeSendRequest = SendRequest <$> get <*> get <*> get
 
 decodeSendReply :: Get ProtocolPayload
 decodeSendReply = SendReply <$> get
+
+decodeAttachRequest :: Get ProtocolPayload
+decodeAttachRequest = AttachRequest <$> get <*> get
+
+decodeAttachReply :: Get ProtocolPayload
+decodeAttachReply = AttachReply <$> get <*> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put

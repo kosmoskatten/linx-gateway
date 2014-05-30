@@ -32,6 +32,9 @@ instance Arbitrary CString where
 instance Arbitrary Timeout where
   arbitrary = frequency [ (1, pure Infinity)
                         , (5, Timeout <$> choose (1, maxBound)) ]
+              
+instance Arbitrary Attref where
+  arbitrary = Attref <$> choose (1, maxBound)
 
 instance Arbitrary PayloadType where
   arbitrary = elements [ InterfaceRequestOp
@@ -65,7 +68,9 @@ instance Arbitrary Message where
                     , receiveRequest 
                     , receiveReply 
                     , sendRequest 
-                    , sendReply ]
+                    , sendReply 
+                    , attachRequest
+                    , attachReply ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -103,6 +108,12 @@ sendRequest = mkSendRequest <$> arbitrary <*> arbitrary <*> arbitrary
 
 sendReply :: Gen Message
 sendReply = return mkSendReply
+
+attachRequest :: Gen Message
+attachRequest = mkAttachRequest <$> arbitrary <*> arbitrary
+
+attachReply :: Gen Message
+attachReply = mkAttachReply <$> arbitrary
 
 clientName :: Gen String
 clientName = string
