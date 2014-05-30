@@ -6,6 +6,7 @@ module Network.Linx.Gateway
        , create
        , destroy
        , hunt
+--       , receiveWithTimeout
        ) where
 
 import Control.Applicative ((<$>))
@@ -21,6 +22,7 @@ import Network.Linx.Gateway.Message
   , mkCreateRequest
   , mkDestroyRequest
   , mkHuntRequest
+  , mkReceiveRequest
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
@@ -31,6 +33,7 @@ import Network.Linx.Gateway.Types
   , Flags (..)
   , Length (..)
   , Pid (..)
+  , Timeout (..)
   , mkCString
   )
 import System.IO (Handle)
@@ -74,6 +77,8 @@ hunt gw client signal' = do
     case pid' of
       Pid 0 -> Nothing
       _     -> Just pid'
+
+-- Ask the gateway server to execute a hunt call.
 
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do

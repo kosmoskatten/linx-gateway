@@ -14,6 +14,7 @@ module Network.Linx.Gateway.Message
        , mkHuntRequest
        , mkHuntReply
        , mkReceiveRequest
+       , mkReceiveReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -113,6 +114,10 @@ data ProtocolPayload =
   | ReceiveRequest { timeout    :: !Timeout
                    , sigselLen  :: !Length
                    , sigselList :: ![SigNo] }
+  | ReceiveReply { status       :: !Status
+                 , senderPid    :: !Pid
+                 , addresseePid :: !Pid
+                 , signal       :: !Signal }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -169,6 +174,9 @@ instance Payload ProtocolPayload where
   header msg@ReceiveRequest {} =
     let Length sigselLen' = sigselLen msg
     in Header ReceiveRequestOp (Length $ 8 + 4 * sigselLen')
+  header msg@ReceiveReply {}   =
+    let Length payloadSize' = payloadSize (signal msg)
+    in Header ReceiveReplyOp (Length $ 12 + payloadSize')
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -194,6 +202,9 @@ instance Binary ProtocolPayload where
   put msg@HuntReply {}        = put (status msg) >> put (pid msg)
   put msg@ReceiveRequest {}   = put (timeout msg) >> put (sigselLen msg)
                                                   >> putList (sigselList msg)
+  put msg@ReceiveReply {}     = put (status msg) >> put (senderPid msg)
+                                                 >> put (addresseePid msg)
+                                                 >> put (signal msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -314,6 +325,12 @@ mkReceiveRequest tmo sigNos =
       payload    = ReceiveRequest tmo sigselLen' sigNos
   in Message (header payload) payload
 
+-- | Make a 'ReceiveReply' message.
+mkReceiveReply :: Pid -> Pid -> Signal -> Message
+mkReceiveReply senderPid' addresseePid' signal' =
+  let payload = ReceiveReply Success senderPid' addresseePid' signal'
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -338,6 +355,7 @@ decodeProtocolPayload payloadType' = runGet go
         HuntRequestOp      -> decodeHuntRequest
         HuntReplyOp        -> decodeHuntReply
         ReceiveRequestOp   -> decodeReceiveRequest
+        ReceiveReplyOp     -> decodeReceiveReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -380,6 +398,9 @@ decodeReceiveRequest = do
   sigselLen'  <- get
   sigselList' <- getList sigselLen'
   return $ ReceiveRequest timeout' sigselLen' sigselList'  
+
+decodeReceiveReply :: Get ProtocolPayload
+decodeReceiveReply = ReceiveReply <$> get <*> get <*> get <*> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
