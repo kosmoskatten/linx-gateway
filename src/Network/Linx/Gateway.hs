@@ -6,7 +6,8 @@ module Network.Linx.Gateway
        , create
        , destroy
        , hunt
---       , receiveWithTimeout
+       , receiveWithTimeout
+       , receive
        ) where
 
 import Control.Applicative ((<$>))
@@ -30,10 +31,12 @@ import Network.Linx.Gateway.Message
 import Network.Linx.Gateway.Signal (Signal (..))
 import Network.Linx.Gateway.Types
   ( Version (..)
+  , Status (..)
   , Flags (..)
   , Length (..)
   , Pid (..)
   , Timeout (..)
+  , SigNo (..)
   , mkCString
   )
 import System.IO (Handle)
@@ -64,7 +67,7 @@ destroy gw = do
          =<< (talkGateway (handle gw) $ mkDestroyRequest (process gw))
   return ()
 
--- Ask the gateway server to execute a hunt call. If the hunted
+-- | Ask the gateway server to execute a hunt call. If the hunted
 -- process is available at the moment of the hunt its pid is returned
 -- immediately.
 hunt :: Gateway -> String -> Signal -> IO (Maybe Pid)
@@ -79,7 +82,19 @@ hunt gw client signal' = do
       _     -> Just pid'
 
 -- Ask the gateway server to execute a hunt call.
-
+receiveWithTimeout :: Gateway -> Timeout -> [SigNo] 
+                   -> IO (Maybe ProtocolPayload)
+receiveWithTimeout gw tmo sigNos = do
+  reply <- expectPayload (handle gw) 
+             =<< (talkGateway (handle gw) $ mkReceiveRequest tmo sigNos)
+  return $
+    case reply of
+      ReceiveReply Success (Pid 0) (Pid 0) NoSignal -> Nothing
+      _                                             -> Just reply
+      
+receive :: Gateway -> [SigNo] -> IO (Maybe ProtocolPayload)
+receive gw = receiveWithTimeout gw Infinite
+  
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do
   LBS.hPut hGw $ encode message
