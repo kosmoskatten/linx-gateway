@@ -8,6 +8,8 @@ module Network.Linx.Gateway
        , hunt
        , receiveWithTimeout
        , receive
+       , sendWithSender
+       , sendWithSelf
        ) where
 
 import Control.Applicative ((<$>))
@@ -24,6 +26,7 @@ import Network.Linx.Gateway.Message
   , mkDestroyRequest
   , mkHuntRequest
   , mkReceiveRequest
+  , mkSendRequest
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
@@ -44,7 +47,7 @@ import System.IO (Handle)
 -- | Record describing a gateway connection.
 data Gateway =
   Gateway { handle    :: !Handle
-          , process   :: !Pid
+          , self      :: !Pid
           , maxSignal :: !Length
           , accept    :: ![PayloadType]}
   deriving (Show, Eq)
@@ -64,7 +67,7 @@ create name hostname port = do
 destroy :: Gateway -> IO ()
 destroy gw = do
   _ <- expectPayload (handle gw) 
-         =<< (talkGateway (handle gw) $ mkDestroyRequest (process gw))
+         =<< (talkGateway (handle gw) $ mkDestroyRequest (self gw))
   return ()
 
 -- | Ask the gateway server to execute a hunt call. If the hunted
@@ -81,7 +84,7 @@ hunt gw client signal' = do
       Pid 0 -> Nothing
       _     -> Just pid'
 
--- Ask the gateway server to execute a hunt call.
+-- | Ask the gateway server to execute a hunt call.
 receiveWithTimeout :: Gateway -> Timeout -> [SigNo] 
                    -> IO (Maybe ProtocolPayload)
 receiveWithTimeout gw tmo sigNos = do
@@ -95,6 +98,18 @@ receiveWithTimeout gw tmo sigNos = do
 receive :: Gateway -> [SigNo] -> IO (Maybe ProtocolPayload)
 receive gw = receiveWithTimeout gw Infinity
   
+-- | Ask the gateway server to execute a send_w_s call.
+sendWithSender :: Gateway -> Pid -> Pid -> Signal -> IO ()
+sendWithSender gw fromPid' destPid' signal' = do
+  _ <- expectPayload (handle gw)
+         =<< (talkGateway (handle gw) $ mkSendRequest fromPid' destPid' signal')
+  return ()
+  
+-- | Ask the gateway server to execute a send call_w_s call where the
+-- sender is the pid stored in the gateway record.
+sendWithSelf :: Gateway -> Pid -> Signal -> IO ()
+sendWithSelf gw = sendWithSender gw (self gw)
+             
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do
   LBS.hPut hGw $ encode message
