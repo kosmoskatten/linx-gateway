@@ -93,7 +93,7 @@ receiveWithTimeout gw tmo sigNos = do
       _                                             -> Just reply
       
 receive :: Gateway -> [SigNo] -> IO (Maybe ProtocolPayload)
-receive gw = receiveWithTimeout gw Infinite
+receive gw = receiveWithTimeout gw Infinity
   
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do

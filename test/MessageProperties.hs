@@ -30,7 +30,7 @@ instance Arbitrary CString where
   arbitrary = mkCString <$> string
 
 instance Arbitrary Timeout where
-  arbitrary = frequency [ (1, pure Infinite)
+  arbitrary = frequency [ (1, pure Infinity)
                         , (5, Timeout <$> choose (1, maxBound)) ]
 
 instance Arbitrary PayloadType where

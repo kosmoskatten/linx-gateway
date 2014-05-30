@@ -67,7 +67,7 @@ newtype Pid = Pid Int32
            
 -- | Timeout value.
 data Timeout =
-    Infinite
+    Infinity
   | Timeout Int32
   deriving (Eq, Show)
 
@@ -137,10 +137,10 @@ instance Binary Timeout where
     value <- getInt32
     return $
       case value of
-        (-1) -> Infinite
+        (-1) -> Infinity
         _    -> Timeout value
         
-  put Infinite        = putInt32 (-1)
+  put Infinity        = putInt32 (-1)
   put (Timeout value) = put value
   
 -- | Make a CString.
