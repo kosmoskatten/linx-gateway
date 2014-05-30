@@ -10,6 +10,7 @@ module Network.Linx.Gateway.Types
        , User (..)
        , Pid (..)
        , Timeout (..)
+       , Attref (..)
        , mkCString
        , cstrlen
        ) where
@@ -71,11 +72,16 @@ data Timeout =
   | Timeout Int32
   deriving (Eq, Show)
 
+-- | Attach reference
+newtype Attref = Attref Int32
+  deriving (Show, Eq, Generic)
+
 -- | Generic binary instances.
 instance Binary Length
 instance Binary Index
 instance Binary SigNo
 instance Binary Pid
+instance Binary Attref
 
 -- | Binary instance for 'Status'.
 instance Binary Status where
