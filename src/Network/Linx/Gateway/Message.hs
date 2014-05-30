@@ -16,6 +16,7 @@ module Network.Linx.Gateway.Message
        , mkReceiveRequest
        , mkReceiveReply
        , mkSendRequest
+       , mkSendReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -125,6 +126,7 @@ data ProtocolPayload =
   | SendRequest { fromPid :: !Pid
                 , destPid :: !Pid
                 , signal  :: !Signal }
+  | SendReply { status :: !Status }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -187,6 +189,7 @@ instance Payload ProtocolPayload where
   header msg@SendRequest {}    =
     let Length payloadSize' = payloadSize (signal msg)
     in Header SendRequestOp (Length $ 8 + payloadSize')
+  header SendReply {}          = Header SendReplyOp (Length 4)
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -217,6 +220,7 @@ instance Binary ProtocolPayload where
                                                  >> put (signal msg)
   put msg@SendRequest {}      = put (fromPid msg) >> put (destPid msg)
                                                   >> put (signal msg)
+  put msg@SendReply {}        = put (status msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -348,6 +352,12 @@ mkSendRequest :: Pid -> Pid -> Signal -> Message
 mkSendRequest fromPid' destPid' signal' =
   let payload = SendRequest fromPid' destPid' signal'
   in Message (header payload) payload
+     
+-- | Make 'SendReply' message.
+mkSendReply :: Message
+mkSendReply = 
+  let payload = SendReply Success
+  in Message (header payload) payload
 
 -- | Get the header size in bytes.
 headerSize :: Length
@@ -375,6 +385,7 @@ decodeProtocolPayload payloadType' = runGet go
         ReceiveRequestOp   -> decodeReceiveRequest
         ReceiveReplyOp     -> decodeReceiveReply
         SendRequestOp      -> decodeSendRequest
+        SendReplyOp        -> decodeSendReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -423,6 +434,9 @@ decodeReceiveReply = ReceiveReply <$> get <*> get <*> get <*> get
 
 decodeSendRequest :: Get ProtocolPayload
 decodeSendRequest = SendRequest <$> get <*> get <*> get
+
+decodeSendReply :: Get ProtocolPayload
+decodeSendReply = SendReply <$> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
