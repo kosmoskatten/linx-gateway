@@ -79,8 +79,8 @@ destroy gw = do
 hunt :: Gateway -> String -> Signal -> IO (Maybe Pid)
 hunt gw client signal' = do
   reply <- expectPayload (handle gw)
-             =<< (talkGateway (handle gw) 
-                   $ mkHuntRequest signal' (mkCString client))
+    =<< (talkGateway (handle gw) 
+         $ mkHuntRequest signal' (mkCString client))
   let pid' = pid reply
   return $
     case pid' of
@@ -107,7 +107,7 @@ receive gw = receiveWithTimeout gw Infinity
 sendWithSender :: Gateway -> Pid -> Pid -> Signal -> IO ()
 sendWithSender gw fromPid' destPid' signal' = do
   _ <- expectPayload (handle gw)
-         =<< (talkGateway (handle gw) $ mkSendRequest fromPid' destPid' signal')
+    =<< (talkGateway (handle gw) $ mkSendRequest fromPid' destPid' signal')
   return ()
   
 -- | Ask the gateway server to execute a send call_w_s call where the
