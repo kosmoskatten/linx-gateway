@@ -11,10 +11,13 @@ module Network.Linx.Gateway
        , sendWithSender
        , sendWithSelf
        , attach
+       , detach
+       , askName
        ) where
 
 import Control.Applicative ((<$>))
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBSC
 import Network (HostName, PortID (..), connectTo)
 import Network.Linx.Gateway.Message
   ( Message (..)
@@ -29,6 +32,8 @@ import Network.Linx.Gateway.Message
   , mkReceiveRequest
   , mkSendRequest
   , mkAttachRequest
+  , mkDetachRequest
+  , mkNameRequest
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
@@ -43,6 +48,7 @@ import Network.Linx.Gateway.Types
   , Timeout (..)
   , SigNo (..)
   , Attref (..)
+  , CString (..)
   , mkCString
   )
 import System.IO (Handle)
@@ -57,9 +63,9 @@ data Gateway =
            
 -- | Create a new client instance in the gateway.
 create :: String -> HostName -> PortID -> IO Gateway
-create name hostname port = do
+create name' hostname port = do
   gw <- connectTo hostname port
-  createReply <- expectPayload gw =<< (talkGateway gw $ mkCreateRequest name)
+  createReply <- expectPayload gw =<< (talkGateway gw $ mkCreateRequest name')
   ifReply     <- expectPayload gw =<< (talkGateway gw $ 
                    mkInterfaceRequest V100 BigEndian)
   return $ Gateway gw (pid createReply)
@@ -121,7 +127,22 @@ attach gw pid' signal' = do
   reply <- expectPayload (handle gw)
     =<< (talkGateway (handle gw) $ mkAttachRequest pid' signal')
   return $ attref reply
+  
+-- | Ask the gateway server to execute a detach call.
+detach :: Gateway -> Attref -> IO ()
+detach gw attref' = do
+  _ <- expectPayload (handle gw) 
+    =<< (talkGateway (handle gw) $ mkDetachRequest attref')
+  return ()
     
+-- | Ask the gateway server about its name.
+askName :: Gateway -> IO String
+askName gw = do
+  reply <- expectPayload (handle gw)
+    =<< (talkGateway (handle gw) $ mkNameRequest)
+  let CString lbs = name reply
+  return $ LBSC.unpack lbs
+
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do
   LBS.hPut hGw $ encode message
