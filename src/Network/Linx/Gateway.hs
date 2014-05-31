@@ -89,16 +89,18 @@ hunt gw client signal' = do
 
 -- | Ask the gateway server to execute a hunt call.
 receiveWithTimeout :: Gateway -> Timeout -> [SigNo] 
-                   -> IO (Maybe ProtocolPayload)
+                   -> IO (Maybe (Pid, Signal))
 receiveWithTimeout gw tmo sigNos = do
   reply <- expectPayload (handle gw) 
-             =<< (talkGateway (handle gw) $ mkReceiveRequest tmo sigNos)
+    =<< (talkGateway (handle gw) $ mkReceiveRequest tmo sigNos)
   return $
     case reply of
       ReceiveReply Success (Pid 0) (Pid 0) NoSignal -> Nothing
-      _                                             -> Just reply
+      ReceiveReply Success senderPid' _ signal'     -> 
+        Just (senderPid', signal')
+      _                                             -> Nothing
       
-receive :: Gateway -> [SigNo] -> IO (Maybe ProtocolPayload)
+receive :: Gateway -> [SigNo] -> IO (Maybe (Pid, Signal))
 receive gw = receiveWithTimeout gw Infinity
   
 -- | Ask the gateway server to execute a send_w_s call.
@@ -119,7 +121,7 @@ attach gw pid' signal' = do
   reply <- expectPayload (handle gw)
     =<< (talkGateway (handle gw) $ mkAttachRequest pid' signal')
   return $ attref reply
-                  
+    
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do
   LBS.hPut hGw $ encode message
