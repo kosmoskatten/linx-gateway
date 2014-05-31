@@ -19,6 +19,8 @@ module Network.Linx.Gateway.Message
        , mkSendReply
        , mkAttachRequest
        , mkAttachReply
+       , mkDetachRequest
+       , mkDetachReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -137,11 +139,15 @@ data ProtocolPayload =
                   , signal :: !Signal }
   | AttachReply { status :: !Status
                 , attref :: !Attref }
+  -- | This request is used to ask the gateway server to execute a
+  -- detach call.
+  | DetachRequest { attref :: !Attref }
+  | DetachReply { status :: !Status }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
 data PayloadType =
-    InterfaceRequestOp
+  InterfaceRequestOp
   | InterfaceReplyOp
   | LoginRequestOp
   | ChallengeResponseOp
@@ -204,6 +210,8 @@ instance Payload ProtocolPayload where
     let Length payloadSize' = payloadSize (signal msg)
     in Header AttachRequestOp (Length $ 4 + payloadSize')
   header AttachReply {}        = Header AttachReplyOp (Length 8)
+  header DetachRequest {}      = Header DetachRequestOp (Length 4)
+  header DetachReply {}        = Header DetachReplyOp (Length 4)
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -237,6 +245,8 @@ instance Binary ProtocolPayload where
   put msg@SendReply {}        = put (status msg)
   put msg@AttachRequest {}    = put (pid msg) >> put (signal msg)
   put msg@AttachReply {}      = put (status msg) >> put (attref msg)
+  put msg@DetachRequest {}    = put (attref msg)
+  put msg@DetachReply {}      = put (status msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -387,6 +397,18 @@ mkAttachReply attref' =
   let payload = AttachReply Success attref'
   in Message (header payload) payload
 
+-- | Make 'DetachRequest' message.
+mkDetachRequest :: Attref -> Message
+mkDetachRequest attref' =
+  let payload = DetachRequest attref'
+  in Message (header payload) payload
+     
+-- | Make 'DetachReply' message.
+mkDetachReply :: Message
+mkDetachReply =
+  let payload = DetachReply Success
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -416,6 +438,8 @@ decodeProtocolPayload payloadType' = runGet go
         SendReplyOp        -> decodeSendReply
         AttachRequestOp    -> decodeAttachRequest
         AttachReplyOp      -> decodeAttachReply
+        DetachRequestOp    -> decodeDetachRequest
+        DetachReplyOp      -> decodeDetachReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -473,6 +497,12 @@ decodeAttachRequest = AttachRequest <$> get <*> get
 
 decodeAttachReply :: Get ProtocolPayload
 decodeAttachReply = AttachReply <$> get <*> get
+
+decodeDetachRequest :: Get ProtocolPayload
+decodeDetachRequest = DetachRequest <$> get
+
+decodeDetachReply :: Get ProtocolPayload
+decodeDetachReply = DetachReply <$> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put

@@ -70,7 +70,9 @@ instance Arbitrary Message where
                     , sendRequest 
                     , sendReply 
                     , attachRequest
-                    , attachReply ]
+                    , attachReply 
+                    , detachRequest
+                    , detachReply ]
   
 interfaceRequest :: Gen Message
 interfaceRequest = mkInterfaceRequest <$> arbitrary <*> arbitrary
@@ -114,6 +116,12 @@ attachRequest = mkAttachRequest <$> arbitrary <*> arbitrary
 
 attachReply :: Gen Message
 attachReply = mkAttachReply <$> arbitrary
+
+detachRequest :: Gen Message
+detachRequest = mkDetachRequest <$> arbitrary
+
+detachReply :: Gen Message
+detachReply = return mkDetachReply
 
 clientName :: Gen String
 clientName = string
