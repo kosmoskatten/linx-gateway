@@ -10,6 +10,7 @@ module Network.Linx.Gateway
        , receive
        , sendWithSender
        , sendWithSelf
+       , attach
        ) where
 
 import Control.Applicative ((<$>))
@@ -27,6 +28,7 @@ import Network.Linx.Gateway.Message
   , mkHuntRequest
   , mkReceiveRequest
   , mkSendRequest
+  , mkAttachRequest
   , headerSize  
   , decodeHeader
   , decodeProtocolPayload
@@ -40,6 +42,7 @@ import Network.Linx.Gateway.Types
   , Pid (..)
   , Timeout (..)
   , SigNo (..)
+  , Attref (..)
   , mkCString
   )
 import System.IO (Handle)
@@ -110,6 +113,13 @@ sendWithSender gw fromPid' destPid' signal' = do
 sendWithSelf :: Gateway -> Pid -> Signal -> IO ()
 sendWithSelf gw = sendWithSender gw (self gw)
              
+-- | Ask the gateway server to execute an attach call.
+attach :: Gateway -> Pid -> Signal -> IO Attref
+attach gw pid' signal' = do
+  reply <- expectPayload (handle gw)
+    =<< (talkGateway (handle gw) $ mkAttachRequest pid' signal')
+  return $ attref reply
+                  
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do
   LBS.hPut hGw $ encode message
