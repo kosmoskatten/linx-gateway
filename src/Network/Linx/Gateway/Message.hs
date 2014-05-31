@@ -21,6 +21,8 @@ module Network.Linx.Gateway.Message
        , mkAttachReply
        , mkDetachRequest
        , mkDetachReply
+       , mkNameRequest
+       , mkNameReply
        , headerSize
        , decodeHeader
        , decodeProtocolPayload
@@ -30,6 +32,7 @@ import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
 import Data.Binary
 import Data.Binary.Get (runGet)
+import Data.Int (Int32)
 import GHC.Generics
 import qualified Data.ByteString.Lazy as LBS
 
@@ -143,6 +146,12 @@ data ProtocolPayload =
   -- detach call.
   | DetachRequest { attref :: !Attref }
   | DetachReply { status :: !Status }
+    
+  -- | This request is to retrieve the gateway server's mame.
+  | NameRequest { reserved :: !Int32 }
+  | NameReply { status  :: !Status
+              , nameLen :: !Length
+              , name    :: !CString }
   deriving (Show, Eq)
 
 -- | Payload type discriminator.
@@ -212,6 +221,10 @@ instance Payload ProtocolPayload where
   header AttachReply {}        = Header AttachReplyOp (Length 8)
   header DetachRequest {}      = Header DetachRequestOp (Length 4)
   header DetachReply {}        = Header DetachReplyOp (Length 4)
+  header NameRequest {}        = Header NameRequestOp (Length 4)
+  header msg@NameReply {}      =
+    let Length nameLen' = nameLen msg
+    in Header NameReplyOp (Length $ 8 + nameLen')
 
 -- | Binary instance for 'Message'.
 instance Binary Message where
@@ -247,6 +260,9 @@ instance Binary ProtocolPayload where
   put msg@AttachReply {}      = put (status msg) >> put (attref msg)
   put msg@DetachRequest {}    = put (attref msg)
   put msg@DetachReply {}      = put (status msg)
+  put msg@NameRequest {}      = put (reserved msg)
+  put msg@NameReply {}        = put (status msg) >> put (nameLen msg)
+                                                 >> put (name msg)
 
 -- | Binary instance for 'PayloadType'.
 instance Binary PayloadType where
@@ -316,8 +332,8 @@ mkInterfaceReply version' flags' types =
 
 -- | Make a 'CreateRequest' message.
 mkCreateRequest :: String -> Message
-mkCreateRequest name =
-  let cstring = mkCString name
+mkCreateRequest name' =
+  let cstring = mkCString name'
       payload = CreateRequest AlwaysZero cstring
   in Message (header payload) payload
 
@@ -409,6 +425,19 @@ mkDetachReply =
   let payload = DetachReply Success
   in Message (header payload) payload
 
+-- | Make 'NameRequest' message.
+mkNameRequest :: Message
+mkNameRequest =
+  let payload = NameRequest 0
+  in Message (header payload) payload
+     
+-- | Make 'NameReply' message.
+mkNameReply :: String -> Message
+mkNameReply name' =
+  let cstring = mkCString name'
+      payload = NameReply Success (cstrlen cstring) cstring
+  in Message (header payload) payload
+
 -- | Get the header size in bytes.
 headerSize :: Length
 headerSize = Length 8
@@ -440,6 +469,8 @@ decodeProtocolPayload payloadType' = runGet go
         AttachReplyOp      -> decodeAttachReply
         DetachRequestOp    -> decodeDetachRequest
         DetachReplyOp      -> decodeDetachReply
+        NameRequestOp      -> decodeNameRequest
+        NameReplyOp        -> decodeNameReply
         _                  -> error "Unsupported payload type"
         
 decodeInterfaceRequest :: Get ProtocolPayload        
@@ -503,6 +534,12 @@ decodeDetachRequest = DetachRequest <$> get
 
 decodeDetachReply :: Get ProtocolPayload
 decodeDetachReply = DetachReply <$> get
+
+decodeNameRequest :: Get ProtocolPayload
+decodeNameRequest = NameRequest <$> get
+
+decodeNameReply :: Get ProtocolPayload
+decodeNameReply = NameReply <$> get <*> get <*> get
 
 putList :: Binary a => [a] -> Put
 putList = mapM_ put
