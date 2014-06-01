@@ -18,6 +18,7 @@ module Network.Linx.Gateway
 import Control.Applicative ((<$>))
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Lazy.Char8 as LBSC
+import Data.Maybe (fromJust)
 import Network (HostName, PortID (..), connectTo)
 import Network.Linx.Gateway.Message
   ( Message (..)
@@ -92,7 +93,9 @@ hunt gw client signal' = do
       Pid 0 -> Nothing
       _     -> Just pid'
 
--- | Ask the gateway server to execute a hunt call.
+-- | Ask the gateway server to execute a receive call with the
+-- specified timeout value. If no signal is received within the time
+-- the value of Nothing is returned.
 receiveWithTimeout :: Gateway -> Timeout -> [SigNo] 
                    -> IO (Maybe (Pid, Signal))
 receiveWithTimeout gw tmo sigNos = do
@@ -105,8 +108,10 @@ receiveWithTimeout gw tmo sigNos = do
         Just (senderPid', signal')
       _                                             -> Nothing
       
-receive :: Gateway -> [SigNo] -> IO (Maybe (Pid, Signal))
-receive gw = receiveWithTimeout gw Infinity
+-- | Ask the gateway server to execute a receive call with infinitely
+-- long waiting time.
+receive :: Gateway -> [SigNo] -> IO (Pid, Signal)
+receive gw sigNos = fromJust <$> receiveWithTimeout gw Infinity sigNos
   
 -- | Ask the gateway server to execute a send_w_s call.
 sendWithSender :: Gateway -> Pid -> Pid -> Signal -> IO ()
