@@ -195,14 +195,14 @@ instance Payload ProtocolPayload where
   header msg@InterfaceReply {} = 
     Header InterfaceReplyOp (Length $ 16 + 4 * (asInt $ typesLen msg))
   header msg@CreateRequest {}  = 
-    let strlen = cstrlen $ myName msg
-    in Header CreateRequestOp $ Length $ 4 + asInt strlen
+    let strlen = asInt $ cstrlen (myName msg)
+    in Header CreateRequestOp $ Length $ 4 + strlen
   header CreateReply {}        = Header CreateReplyOp (Length 12)
   header DestroyRequest {}     = Header DestroyRequestOp (Length 4)
   header DestroyReply {}       = Header DestroyReplyOp (Length 4)
   header msg@HuntRequest {}    =
-    let Length huntNameLen  = cstrlen (huntName msg)
-        Length payloadSize' = payloadSize (signal msg)
+    let huntNameLen  = asInt $ cstrlen (huntName msg)
+        payloadSize' = asInt $ payloadSize (signal msg)
     in Header HuntRequestOp (Length $ 12 + payloadSize' + huntNameLen)
   header HuntReply {}          = Header HuntReplyOp (Length 8)
   header msg@ReceiveRequest {} =
