@@ -5,6 +5,7 @@ module Network.Linx.Gateway
        , Signal (..)
        , SigNo (..)
        , Pid
+       , Timeout (..)
        , create
        , destroy
        , hunt
