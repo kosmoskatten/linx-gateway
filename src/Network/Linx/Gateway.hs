@@ -65,9 +65,9 @@ data Gateway =
 create :: String -> HostName -> PortID -> IO Gateway
 create name' hostname port = do
   gw <- connectTo hostname port
-  createReply <- expectPayload gw =<< (talkGateway gw $ mkCreateRequest name')
-  ifReply     <- expectPayload gw =<< (talkGateway gw $ 
-                   mkInterfaceRequest V100 BigEndian)
+  createReply <- expectPayload gw =<< talkGateway gw (mkCreateRequest name')
+  ifReply     <- expectPayload gw 
+                   =<< talkGateway gw  (mkInterfaceRequest V100 BigEndian)
   return $ Gateway gw (pid createReply)
                       (maxSigSize createReply)
                       (payloadTypes ifReply)
@@ -76,7 +76,7 @@ create name' hostname port = do
 destroy :: Gateway -> IO ()
 destroy gw = do
   _ <- expectPayload (handle gw) 
-         =<< (talkGateway (handle gw) $ mkDestroyRequest (self gw))
+         =<< talkGateway (handle gw) (mkDestroyRequest (self gw))
   return ()
 
 -- | Ask the gateway server to execute a hunt call. If the hunted
@@ -85,8 +85,7 @@ destroy gw = do
 hunt :: Gateway -> String -> Signal -> IO (Maybe Pid)
 hunt gw client signal' = do
   reply <- expectPayload (handle gw)
-    =<< (talkGateway (handle gw) 
-         $ mkHuntRequest signal' (mkCString client))
+    =<< talkGateway (handle gw) (mkHuntRequest signal' (mkCString client))
   let pid' = pid reply
   return $
     case pid' of
@@ -98,7 +97,7 @@ receiveWithTimeout :: Gateway -> Timeout -> [SigNo]
                    -> IO (Maybe (Pid, Signal))
 receiveWithTimeout gw tmo sigNos = do
   reply <- expectPayload (handle gw) 
-    =<< (talkGateway (handle gw) $ mkReceiveRequest tmo sigNos)
+    =<< talkGateway (handle gw) (mkReceiveRequest tmo sigNos)
   return $
     case reply of
       ReceiveReply Success (Pid 0) (Pid 0) NoSignal -> Nothing
@@ -113,7 +112,7 @@ receive gw = receiveWithTimeout gw Infinity
 sendWithSender :: Gateway -> Pid -> Pid -> Signal -> IO ()
 sendWithSender gw fromPid' destPid' signal' = do
   _ <- expectPayload (handle gw)
-    =<< (talkGateway (handle gw) $ mkSendRequest fromPid' destPid' signal')
+    =<< talkGateway (handle gw) (mkSendRequest fromPid' destPid' signal')
   return ()
   
 -- | Ask the gateway server to execute a send call_w_s call where the
@@ -125,21 +124,21 @@ sendWithSelf gw = sendWithSender gw (self gw)
 attach :: Gateway -> Pid -> Signal -> IO Attref
 attach gw pid' signal' = do
   reply <- expectPayload (handle gw)
-    =<< (talkGateway (handle gw) $ mkAttachRequest pid' signal')
+    =<< talkGateway (handle gw) (mkAttachRequest pid' signal')
   return $ attref reply
   
 -- | Ask the gateway server to execute a detach call.
 detach :: Gateway -> Attref -> IO ()
 detach gw attref' = do
   _ <- expectPayload (handle gw) 
-    =<< (talkGateway (handle gw) $ mkDetachRequest attref')
+    =<< talkGateway (handle gw) (mkDetachRequest attref')
   return ()
     
 -- | Ask the gateway server about its name.
 askName :: Gateway -> IO String
 askName gw = do
   reply <- expectPayload (handle gw)
-    =<< (talkGateway (handle gw) $ mkNameRequest)
+    =<< talkGateway (handle gw) mkNameRequest
   let CString lbs = name reply
   return $ LBSC.unpack lbs
 

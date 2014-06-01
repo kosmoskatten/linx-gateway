@@ -193,7 +193,7 @@ instance Payload ProtocolPayload where
   header FailedRequest         = error "Shall not be called this way"
   header InterfaceRequest {}   = Header InterfaceRequestOp (Length 8)
   header msg@InterfaceReply {} = 
-    Header InterfaceReplyOp (Length $ 16 + 4 * (asInt $ typesLen msg))
+    Header InterfaceReplyOp (Length $ 16 + 4 * asInt (typesLen msg))
   header msg@CreateRequest {}  = 
     let strlen = asInt $ cstrlen (myName msg)
     in Header CreateRequestOp $ Length $ 4 + strlen

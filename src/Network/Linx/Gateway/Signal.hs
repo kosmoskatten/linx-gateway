@@ -38,7 +38,7 @@ payloadSize NoSignal         = Length 8
 payloadSize NumericSignal {} = Length 8
 payloadSize sig@Signal {}    =
   let len = LBS.length $ sigData sig
-  in Length $ 8 + (fromIntegral len)
+  in toLength $ 8 + len
 
 instance Binary Signal where
   get                          = do
