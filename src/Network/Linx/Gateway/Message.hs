@@ -80,7 +80,7 @@ data ProtocolPayload =
   -- | This request has two puposes. The client sends this request to
   -- retrieve information about the gateway server, e.g. supported
   -- requests, protocol verions etc. It is also used as a
-  -- "ping-message" to check that the server is alive [..]"
+  -- ping-message to check that the server is alive.
   | InterfaceRequest { version :: !Version 
                      , flags   :: !Flags }
   | InterfaceReply { status       :: !Status 
@@ -89,15 +89,15 @@ data ProtocolPayload =
                    , typesLen     :: !Length 
                    , payloadTypes :: ![PayloadType] }
     
-  -- | This request it used to create a "client" instance on the server
-  -- that the client communicated with."
+  -- | This request it used to create a client instance on the server
+  -- that the client communicated with.
   | CreateRequest { user   :: !User
                   , myName :: !CString }
   | CreateReply { status     :: !Status
                 , pid        :: !Pid
                 , maxSigSize :: !Length }
     
-  -- | This request is used to remove a "client" instance on the server,
+  -- | This request is used to remove a client instance on the server,
   -- i.e. end the session that was started with the create request.
   | DestroyRequest { pid :: !Pid }
   | DestroyReply   {status :: !Status}
@@ -118,8 +118,8 @@ data ProtocolPayload =
   -- before it has received the reply from the previous receive
   -- request. The client may send a second receive request to cancel
   -- the first one. Beware that server may already have sent a receive
-  -- reply before the "cancel request" was received, in this case the
-  -- client must also wait for the "cancel reply". The client may send
+  -- reply before the cancel request was received, in this case the
+  -- client must also wait for the cancel reply. The client may send
   -- an interface request to the server, which returns an interface
   -- reply. This is used by the client to detect if the server has
   -- died while waiting for a receive reply.
