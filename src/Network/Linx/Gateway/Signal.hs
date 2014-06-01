@@ -1,5 +1,6 @@
 module Network.Linx.Gateway.Signal
        ( Signal (..)
+       , SigNo (..)
        , payloadSize
        , encode
        , decode
