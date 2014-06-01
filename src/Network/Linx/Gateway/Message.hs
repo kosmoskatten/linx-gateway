@@ -326,7 +326,7 @@ mkInterfaceRequest version' flags' =
 -- | Make an 'InterfaceReply' message.
 mkInterfaceReply :: Version -> Flags -> [PayloadType] -> Message
 mkInterfaceReply version' flags' types =
-  let typesLength = Length $ (fromIntegral . length) types
+  let typesLength = toLength $ length types
       payload = InterfaceReply Success version' flags' typesLength types
   in Message (header payload) payload
 
@@ -379,7 +379,7 @@ mkHuntReply pid' =
 -- | Make a 'ReceiveRequest' message.
 mkReceiveRequest :: Timeout -> [SigNo] -> Message
 mkReceiveRequest tmo sigNos =
-  let sigselLen' = Length $ fromIntegral (length sigNos)
+  let sigselLen' = toLength $ length sigNos
       payload    = ReceiveRequest tmo sigselLen' sigNos
   in Message (header payload) payload
 
@@ -545,4 +545,4 @@ putList :: Binary a => [a] -> Put
 putList = mapM_ put
 
 getList :: Binary a => Length -> Get [a]
-getList (Length len) = replicateM (fromIntegral len) get
+getList len = replicateM (asInt len) get
