@@ -206,24 +206,24 @@ instance Payload ProtocolPayload where
     in Header HuntRequestOp (Length $ 12 + payloadSize' + huntNameLen)
   header HuntReply {}          = Header HuntReplyOp (Length 8)
   header msg@ReceiveRequest {} =
-    let Length sigselLen' = sigselLen msg
+    let sigselLen' = asInt $ sigselLen msg
     in Header ReceiveRequestOp (Length $ 8 + 4 * sigselLen')
   header msg@ReceiveReply {}   =
-    let Length payloadSize' = payloadSize (signal msg)
+    let payloadSize' = asInt $ payloadSize (signal msg)
     in Header ReceiveReplyOp (Length $ 12 + payloadSize')
   header msg@SendRequest {}    =
-    let Length payloadSize' = payloadSize (signal msg)
+    let payloadSize' = asInt $ payloadSize (signal msg)
     in Header SendRequestOp (Length $ 8 + payloadSize')
   header SendReply {}          = Header SendReplyOp (Length 4)
   header msg@AttachRequest {}  =
-    let Length payloadSize' = payloadSize (signal msg)
+    let payloadSize' = asInt $ payloadSize (signal msg)
     in Header AttachRequestOp (Length $ 4 + payloadSize')
   header AttachReply {}        = Header AttachReplyOp (Length 8)
   header DetachRequest {}      = Header DetachRequestOp (Length 4)
   header DetachReply {}        = Header DetachReplyOp (Length 4)
   header NameRequest {}        = Header NameRequestOp (Length 4)
   header msg@NameReply {}      =
-    let Length nameLen' = nameLen msg
+    let nameLen' = asInt $ nameLen msg
     in Header NameReplyOp (Length $ 8 + nameLen')
 
 -- | Binary instance for 'Message'.
