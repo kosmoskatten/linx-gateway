@@ -54,6 +54,8 @@ import Network.Linx.Gateway.Types
   , Attref (..)
   , mkCString
   , cstrlen
+  , toLength
+  , asInt
   )
 import Network.Linx.Gateway.Signal
   ( Signal (..)
@@ -191,12 +193,10 @@ instance Payload ProtocolPayload where
   header FailedRequest         = error "Shall not be called this way"
   header InterfaceRequest {}   = Header InterfaceRequestOp (Length 8)
   header msg@InterfaceReply {} = 
-    let (Length len) = typesLen msg
-    in Header InterfaceReplyOp (Length $ 16 + 4 * len)
+    Header InterfaceReplyOp (Length $ 16 + 4 * (asInt $ typesLen msg))
   header msg@CreateRequest {}  = 
-    let (CString lbs) = myName msg
-        len           = Length $ 4 + (fromIntegral $ LBS.length lbs) + 1
-    in Header CreateRequestOp len
+    let strlen = cstrlen $ myName msg
+    in Header CreateRequestOp $ Length $ 4 + asInt strlen
   header CreateReply {}        = Header CreateReplyOp (Length 12)
   header DestroyRequest {}     = Header DestroyRequestOp (Length 4)
   header DestroyReply {}       = Header DestroyReplyOp (Length 4)

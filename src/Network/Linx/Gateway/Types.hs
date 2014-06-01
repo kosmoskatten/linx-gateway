@@ -157,10 +157,12 @@ mkCString = CString . LBS.pack
 
 -- | Calculate the length of a CString
 cstrlen :: CString -> Length
-cstrlen (CString lbs) = Length $ fromIntegral (LBS.length lbs) + 1
-
+cstrlen (CString lbs) = toLength $ LBS.length lbs + 1
+  
+-- | Convert an integral value to Length.                        
 toLength :: Integral a => a -> Length
 toLength = Length . fromIntegral
 
+-- | Convert Length to an integral value.
 asInt :: Num a => Length -> a
 asInt (Length l) = fromIntegral l
