@@ -13,6 +13,8 @@ module Network.Linx.Gateway.Types
        , Attref (..)
        , mkCString
        , cstrlen
+       , toLength
+       , asInt
        ) where
 
 import Control.Applicative ((<$>))
@@ -156,3 +158,9 @@ mkCString = CString . LBS.pack
 -- | Calculate the length of a CString
 cstrlen :: CString -> Length
 cstrlen (CString lbs) = Length $ fromIntegral (LBS.length lbs) + 1
+
+toLength :: Integral a => a -> Length
+toLength = Length . fromIntegral
+
+asInt :: Num a => Length -> a
+asInt (Length l) = fromIntegral l
