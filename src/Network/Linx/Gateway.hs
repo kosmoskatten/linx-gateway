@@ -3,6 +3,7 @@ module Network.Linx.Gateway
        , HostName
        , PortID (..)
        , Signal (..)
+       , Pid
        , create
        , destroy
        , hunt
