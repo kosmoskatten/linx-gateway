@@ -4,6 +4,7 @@ module Network.Linx.Gateway
        , PortID (..)
        , Signal (..)
        , SigNo (..)
+       , SignalSelector (..)
        , Pid
        , Timeout (..)
        , create
@@ -44,7 +45,7 @@ import Network.Linx.Gateway.Message
   )
 import Network.Linx.Gateway.Signal 
   ( Signal (..)
-  , SignalSelector
+  , SignalSelector (..)
   )
 import Network.Linx.Gateway.Types
   ( Version (..)
