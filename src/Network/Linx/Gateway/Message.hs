@@ -59,7 +59,7 @@ import Network.Linx.Gateway.Types
   )
 import Network.Linx.Gateway.Signal
   ( Signal (..)
-  , payloadSize
+  , PayloadSize (payloadSize)
   )
 
 -- | Message.

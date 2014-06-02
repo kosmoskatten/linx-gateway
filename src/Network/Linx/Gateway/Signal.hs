@@ -1,7 +1,7 @@
 module Network.Linx.Gateway.Signal
        ( Signal (..)
        , SigNo (..)
-       , payloadSize
+       , PayloadSize (..)
        , encode
        , decode
        ) where
@@ -13,6 +13,10 @@ import Data.Binary.Put (putLazyByteString)
 import qualified Data.ByteString.Lazy as LBS
 import Network.Linx.Gateway.Types
 import Network.Linx.Gateway.BinaryInt32
+
+-- | Type class to determine the size of a signal.
+class PayloadSize a where
+  payloadSize :: a -> Length
 
 -- | A signal - user lever payload data - is coded into three
 -- different fields in the gateway protocol: Signal length in bytes,
@@ -30,16 +34,15 @@ data Signal =
   | NoSignal
   deriving (Eq, Show)
 
--- | The payload size for a signal in this implementation also
--- includes the signal length field, so the minimal coded size for a
--- signal is eight bytes.
-payloadSize :: Signal -> Length
-payloadSize NoSignal         = Length 8
-payloadSize NumericSignal {} = Length 8
-payloadSize sig@Signal {}    =
-  let len = LBS.length $ sigData sig
-  in toLength $ 8 + len
+-- | PayloadSize instance.
+instance PayloadSize Signal where
+  payloadSize NoSignal         = Length 8
+  payloadSize NumericSignal {} = Length 8
+  payloadSize sig@Signal {}    =
+    let len = LBS.length $ sigData sig
+    in toLength $ 8 + len
 
+-- | Binary instance.
 instance Binary Signal where
   get                          = do
     len <- asInt <$> get
