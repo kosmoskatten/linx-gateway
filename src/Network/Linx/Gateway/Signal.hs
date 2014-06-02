@@ -69,7 +69,7 @@ instance Binary Signal where
   get                          = do
     len <- asInt <$> get
     case len of
-      0 -> getInt32 >>= \_ -> return NoSignal
+      0 -> getInt32 >> return NoSignal
       4 -> NumericSignal <$> get
       _ -> Signal <$> get <*> getLazyByteString (len - 4)
   
