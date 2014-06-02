@@ -15,10 +15,9 @@ import Network.Linx.Gateway.Types
 import Network.Linx.Gateway.BinaryInt32
 
 -- | A signal - user lever payload data - is coded into three
--- different fields in the gateway protocol:
--- + signal length in bytes, including signal number +
--- + signal number                                   +
--- + first four bytes of the signal data             +
+-- different fields in the gateway protocol: Signal length in bytes,
+-- including signal number. Signal number. Array of signal data. Even
+-- in the case of 'NoSignal' the binary encoding is eight bytes.
 data Signal =
     -- | A full bodied signal with number and data.
     Signal { sigNo   :: !SigNo
