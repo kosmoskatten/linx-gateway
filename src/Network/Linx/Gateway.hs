@@ -42,7 +42,10 @@ import Network.Linx.Gateway.Message
   , decodeHeader
   , decodeProtocolPayload
   )
-import Network.Linx.Gateway.Signal (Signal (..))
+import Network.Linx.Gateway.Signal 
+  ( Signal (..)
+  , SignalSelector
+  )
 import Network.Linx.Gateway.Types
   ( Version (..)
   , Status (..)
@@ -99,11 +102,11 @@ hunt gw client signal' = do
 -- | Ask the gateway server to execute a receive call with the
 -- specified timeout value. If no signal is received within the time
 -- the value of Nothing is returned.
-receiveWithTimeout :: Gateway -> Timeout -> [SigNo] 
+receiveWithTimeout :: Gateway -> Timeout -> SignalSelector
                    -> IO (Maybe (Pid, Signal))
-receiveWithTimeout gw tmo sigNos = do
+receiveWithTimeout gw tmo sigSel' = do
   reply <- expectPayload (handle gw) 
-    =<< talkGateway (handle gw) (mkReceiveRequest tmo sigNos)
+    =<< talkGateway (handle gw) (mkReceiveRequest tmo sigSel')
   return $
     case reply of
       ReceiveReply Success (Pid 0) (Pid 0) NoSignal -> Nothing
@@ -113,8 +116,8 @@ receiveWithTimeout gw tmo sigNos = do
       
 -- | Ask the gateway server to execute a receive call with infinitely
 -- long waiting time.
-receive :: Gateway -> [SigNo] -> IO (Pid, Signal)
-receive gw sigNos = fromJust <$> receiveWithTimeout gw Infinity sigNos
+receive :: Gateway -> SignalSelector -> IO (Pid, Signal)
+receive gw sigSel' = fromJust <$> receiveWithTimeout gw Infinity sigSel'
   
 -- | Ask the gateway server to execute a send_w_s call.
 sendWithSender :: Gateway -> Pid -> Pid -> Signal -> IO ()

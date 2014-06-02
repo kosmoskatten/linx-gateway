@@ -47,7 +47,6 @@ import Network.Linx.Gateway.Types
   ( Status (..)
   , Length (..)
   , Index (..)
-  , SigNo (..)
   , Version (..)
   , Flags (..)
   , CString (..)
@@ -62,6 +61,7 @@ import Network.Linx.Gateway.Types
   )
 import Network.Linx.Gateway.Signal
   ( Signal (..)
+  , SignalSelector (..)
   , PayloadSize (payloadSize)
   )
 
@@ -127,8 +127,7 @@ data ProtocolPayload =
   -- reply. This is used by the client to detect if the server has
   -- died while waiting for a receive reply.
   | ReceiveRequest { timeout    :: !Timeout
-                   , sigselLen  :: !Length
-                   , sigselList :: ![SigNo] }
+                   , sigSel     :: !SignalSelector }
   | ReceiveReply { status       :: !Status
                  , senderPid    :: !Pid
                  , addresseePid :: !Pid
@@ -209,8 +208,8 @@ instance Payload ProtocolPayload where
     in Header HuntRequestOp (Length $ 12 + payloadSize' + huntNameLen)
   header HuntReply {}          = Header HuntReplyOp (Length 8)
   header msg@ReceiveRequest {} =
-    let sigselLen' = asInt $ sigselLen msg
-    in Header ReceiveRequestOp (Length $ 8 + 4 * sigselLen')
+    let sigselLen = asInt $ payloadSize (sigSel msg)
+    in Header ReceiveRequestOp (Length $ 4 + sigselLen)
   header msg@ReceiveReply {}   =
     let payloadSize' = asInt $ payloadSize (signal msg)
     in Header ReceiveReplyOp (Length $ 12 + payloadSize')
@@ -251,8 +250,7 @@ instance Binary ProtocolPayload where
     put (user msg) >> put (nameIndex msg) >> put (sigIndex msg)
                    >> put (signal msg) >> put (huntName msg)
   put msg@HuntReply {}        = put (status msg) >> put (pid msg)
-  put msg@ReceiveRequest {}   = put (timeout msg) >> put (sigselLen msg)
-                                                  >> putList (sigselList msg)
+  put msg@ReceiveRequest {}   = put (timeout msg) >> put (sigSel msg)
   put msg@ReceiveReply {}     = put (status msg) >> put (senderPid msg)
                                                  >> put (addresseePid msg)
                                                  >> put (signal msg)
@@ -380,10 +378,9 @@ mkHuntReply pid' =
   in Message (header payload) payload
 
 -- | Make a 'ReceiveRequest' message.
-mkReceiveRequest :: Timeout -> [SigNo] -> Message
-mkReceiveRequest tmo sigNos =
-  let sigselLen' = toLength $ length sigNos
-      payload    = ReceiveRequest tmo sigselLen' sigNos
+mkReceiveRequest :: Timeout -> SignalSelector -> Message
+mkReceiveRequest tmo sigSel' =
+  let payload    = ReceiveRequest tmo sigSel'
   in Message (header payload) payload
 
 -- | Make a 'ReceiveReply' message.
@@ -511,11 +508,7 @@ decodeHuntReply :: Get ProtocolPayload
 decodeHuntReply = HuntReply <$> get <*> get
 
 decodeReceiveRequest :: Get ProtocolPayload
-decodeReceiveRequest = do
-  timeout'    <- get
-  sigselLen'  <- get
-  sigselList' <- getList sigselLen'
-  return $ ReceiveRequest timeout' sigselLen' sigselList'  
+decodeReceiveRequest = ReceiveRequest <$> get <*> get
 
 decodeReceiveReply :: Get ProtocolPayload
 decodeReceiveReply = ReceiveReply <$> get <*> get <*> get <*> get
