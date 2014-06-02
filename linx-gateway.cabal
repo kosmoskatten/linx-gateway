@@ -27,7 +27,7 @@ library
                        , Network.Linx.Gateway.Signal
                        , Network.Linx.Gateway.Types
   other-modules:       Network.Linx.Gateway.BinaryInt32
-                       , Network.Linx.Gateway.BinaryInt32
+                       , Network.Linx.Gateway.BinaryList
   build-depends:       base >=4.6 && <4.7
                        , binary >= 0.6 && <0.7.2
                        , bytestring >= 0.10 && <0.10.1
