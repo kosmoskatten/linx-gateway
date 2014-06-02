@@ -29,7 +29,6 @@ module Network.Linx.Gateway.Message
        ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (replicateM)
 import Data.Binary
 import Data.Binary.Get (runGet)
 import Data.Int (Int32)
@@ -39,6 +38,10 @@ import qualified Data.ByteString.Lazy as LBS
 import Network.Linx.Gateway.BinaryInt32
   ( getInt32
   , putInt32
+  )
+import Network.Linx.Gateway.BinaryList
+  ( getList
+  , putList
   )
 import Network.Linx.Gateway.Types
   ( Status (..)
@@ -540,9 +543,3 @@ decodeNameRequest = NameRequest <$> get
 
 decodeNameReply :: Get ProtocolPayload
 decodeNameReply = NameReply <$> get <*> get <*> get
-
-putList :: Binary a => [a] -> Put
-putList = mapM_ put
-
-getList :: Binary a => Length -> Get [a]
-getList len = replicateM (asInt len) get

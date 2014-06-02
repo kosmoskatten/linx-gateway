@@ -23,9 +23,6 @@ instance Arbitrary Length where
 instance Arbitrary Pid where
   arbitrary = Pid <$> choose (1, maxBound)
               
-instance Arbitrary SigNo where
-  arbitrary = SigNo <$> choose (1, maxBound)
-
 instance Arbitrary CString where
   arbitrary = mkCString <$> string
 

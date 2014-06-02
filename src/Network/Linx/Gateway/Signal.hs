@@ -1,5 +1,6 @@
 module Network.Linx.Gateway.Signal
        ( Signal (..)
+       , SignalSelector (..)
        , SigNo (..)
        , PayloadSize (..)
        , encode
@@ -13,6 +14,7 @@ import Data.Binary.Put (putLazyByteString)
 import qualified Data.ByteString.Lazy as LBS
 import Network.Linx.Gateway.Types
 import Network.Linx.Gateway.BinaryInt32
+import Network.Linx.Gateway.BinaryList
 
 -- | Type class to determine the size of a signal.
 class PayloadSize a where
@@ -34,15 +36,35 @@ data Signal =
   | NoSignal
   deriving (Eq, Show)
 
--- | PayloadSize instance.
+-- | A signal selector is used to filter which signals to expect when
+-- calling receive. It can either be one of two specific filters -
+-- AnySignal or Cancel - or a generic filter.
+data SignalSelector =
+    -- | Accept any kind of signal.
+    AnySignal
+    -- | Cancel the last receive.
+  | Cancel
+    -- | Accept any of the specified signals. The list must not be
+    -- empty.
+  | Sel { selection :: ![SigNo] }
+  deriving (Eq, Show)
+
+-- | PayloadSize instances.
 instance PayloadSize Signal where
   payloadSize NoSignal         = Length 8
   payloadSize NumericSignal {} = Length 8
   payloadSize sig@Signal {}    =
     let len = LBS.length $ sigData sig
     in toLength $ 8 + len
+       
+instance PayloadSize SignalSelector where
+  payloadSize AnySignal  = Length 8
+  payloadSize Cancel     = Length 8
+  payloadSize sel@Sel {} = 
+    let len = length $ selection sel
+    in toLength $ 8 + len * 4
 
--- | Binary instance.
+-- | Binary instances.
 instance Binary Signal where
   get                          = do
     len <- asInt <$> get
@@ -55,4 +77,22 @@ instance Binary Signal where
   put (NumericSignal sigNo')   = putInt32 4 >> put sigNo'
   put (Signal sigNo' sigData') =
     let len = toLength $ LBS.length sigData' + 4
-    in put len >> put sigNo' >> putLazyByteString sigData'       
+    in put len >> put sigNo' >> putLazyByteString sigData'
+       
+instance Binary SignalSelector where
+  get = do
+    len <- asInt <$> get
+    case len :: Int32 of
+      0 -> getInt32 >> return Cancel
+      1 -> getInt32 >> return AnySignal
+      _ -> get >>= \n -> Sel <$> getList n
+        
+  put AnySignal  = putInt32 1 >> putInt32 0
+  put Cancel     = putInt32 0 >> putInt32 0
+  put sel@Sel {}
+   | selection sel == [] = error "Cannot encode empty selector list"
+   | otherwise           = do
+     let len   = length (selection sel)
+         len'  = toLength (len + 1)
+         len'' = toLength len
+     put (len') >> put len'' >> putList (selection sel)

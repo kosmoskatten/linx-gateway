@@ -16,5 +16,6 @@ suite =
     ]
   , testGroup "Signal properties"
     [ testProperty "Shall encode/decode signals" prop_signal
+    , testProperty "Shall encode/decode signalSelectors" prop_signalSelector
     ]
   ]
