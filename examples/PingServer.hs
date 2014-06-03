@@ -2,7 +2,15 @@ module Main where
 
 import Control.Monad (forever)
 import System.Environment (getArgs)
-import Network.Linx.Gateway
+import Network.Linx.Gateway 
+  ( PortID (Service)
+  , Signal (..)
+  , SignalSelector (..)
+  , create
+  , askName
+  , sendWithSelf
+  , receive
+  )
 import Text.Printf
 import PingMessage
 
