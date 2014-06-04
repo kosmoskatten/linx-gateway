@@ -24,8 +24,8 @@
 --
 -- > cabal configure
 -- > cabal build
--- > cabal run PingClient client 192.168.122.8 21768
--- > cabal run PingServer 192.168.122.8 21768
+-- > cabal run Ping client 192.168.122.8 21768
+-- > cabal run Ping 192.168.122.8 21768
 --
 -- The order in which the server and the client is started is not
 -- important. The client is also supervising the server, so if the

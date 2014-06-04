@@ -1,25 +1,57 @@
 {-# LANGUAGE CPP #-}
 module Main where
 
-#include "SignalNumbers.h"
-
 import Control.Applicative ((<$>))
+import Control.Monad (forever)
 import System.Environment (getArgs)
 import Network.Linx.Gateway
 import Text.Printf
 import PingMessage
 
+#define HuntSig (SigNo 1)
+#define AttachSig (SigNo 2)
+#define PingRequestSig (SigNo 100)
+#define PingResponseSig (SigNo 101)
+
+-- A LINX gatway server must be available for the program to work.
+main :: IO ()
+main = do
+  args <- getArgs
+  case args of
+    [gateway, gatewayPort]       -> runPingServer gateway gatewayPort
+    [name, gateway, gatewayPort] -> runPingClient name gateway gatewayPort
+    _                            -> do
+      printf "Run as either:\n"
+      printf "Ping <gateway address> <gateway port> or\n"
+      printf "Ping <client name> <gateway address> <gateway port>\n"
+
+-- | Simple ping server that just turns ping requests back to the
+-- requester as a ping response.
+runPingServer :: String -> String -> IO ()
+runPingServer gateway port = do
+  -- Register itself in the gateway. Getting a Gateway instance in
+  -- return.
+  gw     <- create "server" gateway (Service port)
+  -- Ask the gateway server to tell its configured name.
+  gwName <- askName gw
+  printf "PingServer now connectected to gateway '%s'\n" gwName
+  
+  -- Forever wait for signals of type ping request ...
+  forever $ do
+    (from, Signal PingRequestSig lbs) <- receive gw $ Sel [PingRequestSig]
+    let request  = decode lbs -- Decode user level payload
+        response = mkTimestampedPingResponse request
+    printf "Got '%s' from '%s'\n" (show request) (show from)
+    
+    -- Send the response back to the requester.
+    sendWithSelf gw from $ Signal PingResponseSig (encode response)
+
 -- | Simple LINX gateway program to implement a ping client sending
 -- ping request messages to a ping server every second. When the ping
 -- response is received the complete round trip time is calculated and
 -- printed on stdout.
---
--- A LINX gatway server must be available for the program to work.
-main :: IO ()
-main = runPingClient =<< getArgs
-
-runPingClient :: [String] -> IO ()
-runPingClient [name, gateway, gatewayPort] = do
+runPingClient :: String -> String -> String -> IO ()
+runPingClient name gateway gatewayPort = do
   -- Register itself in the gateway. Getting a Gateway instance in
   -- return.
   gw     <- create name gateway (Service gatewayPort)
@@ -32,8 +64,6 @@ runPingClient [name, gateway, gatewayPort] = do
   -- Ask for a LINX connection to the ping server named "server". Once
   -- it's available enter the event loop.
   eventLoop gw =<< discoverAndSupervise gw "server"
-runPingClient _ = 
-  error "Run as PingClient <Client name> <Gateway address> <Gateway port>"
   
 eventLoop :: Gateway -> Pid -> IO ()
 eventLoop gw pid = do

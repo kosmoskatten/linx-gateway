@@ -46,22 +46,15 @@ test-suite linx-gateway-tests
                        , test-framework >= 0.8 && <0.9		      
                        , test-framework-quickcheck2 >= 0.3.0.2 && <0.3.0.3
   hs-source-dirs:      test, src
+  other-modules:       Generators
+                       , MessageProperties
+                       , SignalProperties
   ghc-options:         -Wall -fno-warn-orphans
   default-language:    Haskell2010
 
-executable PingServer
-  main-is:             PingServer.hs
-  build-depends:       base >=4.6 && <4.7
-                       , binary >= 0.6 && <0.7.2
-                       , bytestring >= 0.10 && <0.10.1
-                       , network >= 2.4 && <2.5
-                       , time >= 1.4 && <1.5
-  hs-source-dirs:      examples, src
-  ghc-options:         -Wall -fno-warn-unused-do-bind
-  default-language:    Haskell2010
-
-executable PingClient
-  main-is:             PingClient.hs
+executable Ping
+  main-is:             Ping.hs
+  other-modules:       PingMessage
   build-depends:       base >=4.6 && <4.7
                        , binary >= 0.6 && <0.7.2
                        , bytestring >= 0.10 && <0.10.1
