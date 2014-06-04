@@ -1,4 +1,7 @@
+{-# LANGUAGE CPP #-}
 module Main where
+
+#include "SignalNumbers.h"
 
 import Control.Applicative ((<$>))
 import System.Environment (getArgs)
@@ -23,20 +26,20 @@ eventLoop :: Gateway -> Pid -> IO ()
 eventLoop gw pid = do
   -- Wait for one second ...
   maybeSig <- 
-    receiveWithTimeout gw (Timeout 1000) $ Sel [pingResponseSig, attachSig]
+    receiveWithTimeout gw (Timeout 1000) $ Sel [PingResponseSig, AttachSig]
   handleSignal maybeSig  
   where
     handleSignal :: Maybe (Pid, Signal) -> IO ()
     handleSignal Nothing = do
       ping <- encode <$> mkTimestampedPingRequest
-      sendWithSelf gw pid $ Signal pingRequestSig ping
+      sendWithSelf gw pid $ Signal PingRequestSig ping
       eventLoop gw pid
       
-    handleSignal (Just (pid', NumericSignal (SigNo 2))) = do
-      printf "Lost contact to pid '%s'. Trying to reconnect ...\n" (show pid')
+    handleSignal (Just (lost, NumericSignal AttachSig)) = do
+      printf "Lost contact to pid '%s'. Trying to reconnect ...\n" (show lost)
       eventLoop gw =<< discoverAndSupervise gw "server"
       
-    handleSignal (Just (_, Signal (SigNo 101) lbs)) = do
+    handleSignal (Just (_, Signal PingResponseSig lbs)) = do
       rtt <- captureRTT $ decode lbs
       printf "Got PingResponse with RTT: '%s'\n" (show rtt)
       eventLoop gw pid
@@ -47,14 +50,8 @@ eventLoop gw pid = do
 
 discoverAndSupervise :: Gateway -> String -> IO Pid
 discoverAndSupervise gw huntee = do
-  _ <- hunt gw huntee $ NumericSignal huntSig
-  (pid, _) <- receive gw $ Sel [huntSig]
-  attach gw pid $ NumericSignal attachSig
+  _ <- hunt gw huntee $ NumericSignal HuntSig
+  (pid, NumericSignal HuntSig) <- receive gw $ Sel [HuntSig]
+  attach gw pid $ NumericSignal AttachSig
   printf "PingClient now attached to server with pid: '%s'\n" (show pid)
   return pid
-  
-huntSig :: SigNo
-huntSig = SigNo 1
-
-attachSig :: SigNo
-attachSig = SigNo 2

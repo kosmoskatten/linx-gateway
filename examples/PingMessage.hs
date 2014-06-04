@@ -1,12 +1,10 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE CPP, DeriveGeneric #-}
 module PingMessage
        ( PingRequest
        , PingResponse
        , mkTimestampedPingRequest
        , mkTimestampedPingResponse
        , captureRTT
-       , pingRequestSig
-       , pingResponseSig
        , encode
        , decode
        ) where
@@ -15,7 +13,6 @@ import Control.Applicative ((<$>))
 import Data.Binary
 import Data.Time (getCurrentTime)
 import Data.Time.Clock (NominalDiffTime, diffUTCTime)
-import Network.Linx.Gateway (SigNo (..))
 import GHC.Generics
 
 newtype PingRequest = PingRequest String
@@ -37,11 +34,4 @@ captureRTT :: PingResponse -> IO NominalDiffTime
 captureRTT (PingResponse timestamp) = do
   currentTime <- getCurrentTime
   let startTime = read timestamp
-  return $ diffUTCTime currentTime startTime
-  
-pingRequestSig :: SigNo
-pingRequestSig = SigNo 100
-
-pingResponseSig :: SigNo
-pingResponseSig = SigNo 101
-  
+  return $ diffUTCTime currentTime startTime    
