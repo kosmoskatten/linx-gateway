@@ -1,3 +1,5 @@
+-- | The module is implementing the LINX signal concept, which is the
+-- user level payload exchanged between two services.
 module Network.Linx.Gateway.Signal
        ( Signal (..)
        , SignalSelector (..)

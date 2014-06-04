@@ -1,3 +1,38 @@
+-- | Implementation of the Enea LINX Gateway protocol in Haskell. More
+-- information about LINX and the LINX Gateway can be found on its
+-- project page on Sourceforge: <http://sourceforge.net/projects/linx/>
+--
+-- [LINX Gateway Documentation]
+--
+-- User's guide: <http://linx.sourceforge.net/linxdoc/doc/usersguide/UsersGuide_LINX_Gateway.html>
+--
+-- LINX protcols: <http://linx.sourceforge.net/linxdoc/doc/linxprotocols/book-linx-protocols-html/index.html>
+--
+-- [Example application]
+--
+-- Bundled with this software package is an example application
+-- consisting of one ping server program and one ping client
+-- program. The example programs are demonstrating several aspects of
+-- the gateway API.
+--
+-- The code can be browsed in the examples directory at the project's
+-- GitHub: <https://github.com/kosmoskatten/linx-gateway>
+-- 
+-- In order to run the examples a LINX Gateserver must be setup and be
+-- available in your IP network. For the samples below the gateway
+-- server is running at 192.168.122.8 port 21768.
+--
+-- > cabal configure
+-- > cabal build
+-- > cabal run PingClient client 192.168.122.8 21768
+-- > cabal run PingServer 192.168.122.8 21768
+--
+-- The order in which the server and the client is started is not
+-- important. The client is also supervising the server, so if the
+-- server is terminated the client is trying to reconnect to the
+-- server again once it's restarted.
+--
+-- Several clients can be started.
 module Network.Linx.Gateway
        ( Gateway (..)
        , HostName
@@ -61,18 +96,26 @@ import Network.Linx.Gateway.Types
   )
 import System.IO (Handle)
   
--- | Record describing a gateway connection.
+-- | Gateway instance.
 data Gateway =
-  Gateway { handle    :: !Handle
-          , self      :: !Pid
-          , maxSignal :: !Length
-          , accept    :: ![PayloadType]}
+  Gateway { 
+      -- | The socket handle towards the gateway server.
+      handle    :: !Handle
+      -- | The LINX 'Pid' of the gateway instance.
+    , self      :: !Pid
+      -- | The max length of a 'Signal' payload the gateway
+      -- server is accepting.
+    , maxSignal :: !Length
+      -- | The type of operations in the gateway protocol that
+      -- the gateway server is accepting.
+    , accept    :: ![PayloadType]}
   deriving (Show, Eq)
            
--- | Create a new client instance in the gateway.
+-- | Create a new client instance in the gateway. The gateway is
+-- addressed by a hostname and a port id.
 create :: String -> HostName -> PortID -> IO Gateway
 create name' hostname port = do
-  gw <- connectTo hostname port
+  gw          <- connectTo hostname port
   createReply <- expectPayload gw =<< talkGateway gw (mkCreateRequest name')
   ifReply     <- expectPayload gw 
                    =<< talkGateway gw  (mkInterfaceRequest V100 BigEndian)

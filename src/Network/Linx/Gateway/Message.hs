@@ -1,3 +1,6 @@
+-- | Implementation of /low level/ messages from the LINX Gateway
+-- protocol. Details about the protocol can be found at:
+-- <http://linx.sourceforge.net/linxdoc/doc/linxprotocols/book-linx-protocols-html/index.html>
 {-# LANGUAGE DeriveGeneric #-}
 module Network.Linx.Gateway.Message 
        ( Message (..)
@@ -65,7 +68,7 @@ import Network.Linx.Gateway.Signal
   , PayloadSize (payloadSize)
   )
 
--- | Message.
+-- | Message, carrying a 'Header' and a 'ProtocolPayload'.
 data Message =
   Message !Header !ProtocolPayload
   deriving (Show, Eq)
