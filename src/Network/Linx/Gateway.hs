@@ -145,7 +145,7 @@ hunt gw client signal' = do
 
 -- | Ask the gateway server to execute a receive call with the
 -- specified timeout value. If no signal is received within the time
--- the value of Nothing is returned.
+-- the value of 'Nothing' is returned.
 receiveWithTimeout :: Gateway -> Timeout -> SignalSelector
                    -> IO (Maybe (Pid, Signal))
 receiveWithTimeout gw tmo sigSel' = do
