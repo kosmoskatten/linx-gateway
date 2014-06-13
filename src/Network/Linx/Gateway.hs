@@ -18,9 +18,9 @@
 -- The code can be browsed in the examples directory at the project's
 -- GitHub: <https://github.com/kosmoskatten/linx-gateway>
 -- 
--- In order to run the examples a LINX Gateserver must be setup and be
--- available in your IP network. For the samples below the gateway
--- server is running at 192.168.122.8 port 21768.
+-- In order to run the examples a LINX Gateway server must be setup
+-- and be available in your IP network. For the samples below the
+-- gateway server is running at 192.168.122.8 port 21768.
 --
 -- > cabal configure
 -- > cabal build
@@ -52,13 +52,16 @@ module Network.Linx.Gateway
        , attach
        , detach
        , askName
+       , withGateway
        ) where
 
 import Control.Applicative ((<$>))
+import Control.Exception (bracket)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Lazy.Char8 as LBSC
 import Data.Maybe (fromJust)
 import Network (HostName, PortID (..), connectTo)
+import Network.Socket (withSocketsDo)
 import Network.Linx.Gateway.Message
   ( Message (..)
   , Header (..)
@@ -114,14 +117,15 @@ data Gateway =
 -- | Create a new client instance in the gateway. The gateway is
 -- addressed by a hostname and a port id.
 create :: String -> HostName -> PortID -> IO Gateway
-create name' hostname port = do
-  gw          <- connectTo hostname port
-  createReply <- expectPayload gw =<< talkGateway gw (mkCreateRequest name')
-  ifReply     <- expectPayload gw 
-                   =<< talkGateway gw  (mkInterfaceRequest V100 BigEndian)
-  return $ Gateway gw (pid createReply)
-                      (maxSigSize createReply)
-                      (payloadTypes ifReply)
+create name' hostname port =
+  withSocketsDo $ do
+    gw          <- connectTo hostname port
+    createReply <- expectPayload gw =<< talkGateway gw (mkCreateRequest name')
+    ifReply     <- expectPayload gw 
+                     =<< talkGateway gw  (mkInterfaceRequest V100 BigEndian)
+    return $ Gateway gw (pid createReply)
+                        (maxSigSize createReply)
+                        (payloadTypes ifReply)
   
 -- | Destroy a client.
 destroy :: Gateway -> IO ()
@@ -196,6 +200,12 @@ askName gw = do
     =<< talkGateway (handle gw) mkNameRequest
   let CString lbs = name reply
   return $ LBSC.unpack lbs
+
+-- | Convenience function to handle acquire and release semantics for
+-- creating and destroying a gateway instance.
+withGateway :: String -> HostName -> PortID -> (Gateway -> IO a) -> IO a
+withGateway service host port handler = 
+  bracket (create service host port) destroy handler
 
 talkGateway :: Handle -> Message -> IO Header
 talkGateway hGw message = do

@@ -1,5 +1,5 @@
 name:                linx-gateway
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            Implementation of the Enea LINX gateway protocol.
 description:         Implementation of the Enea LINX gateway protocol. The 
                      protocol enables clients to communicate through a 
