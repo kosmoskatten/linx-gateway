@@ -18,52 +18,47 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [gateway, gatewayPort]       -> runPingServer gateway gatewayPort
-    [name, gateway, gatewayPort] -> runPingClient name gateway gatewayPort
-    _                            -> do
+    [gateway, port]       -> runPingServer gateway (Service port)
+    [name, gateway, port] -> runPingClient name gateway (Service port)
+    _                     -> do
       printf "Run as either:\n"
       printf "Ping <gateway address> <gateway port> or\n"
       printf "Ping <client name> <gateway address> <gateway port>\n"
 
 -- | Simple ping server that just turns ping requests back to the
 -- requester as a ping response.
-runPingServer :: String -> String -> IO ()
-runPingServer gateway port = do
-  -- Register itself in the gateway. Getting a Gateway instance in
-  -- return.
-  gw     <- create "server" gateway (Service port)
-  -- Ask the gateway server to tell its configured name.
-  gwName <- askName gw
-  printf "PingServer now connectected to gateway '%s'\n" gwName
+runPingServer :: HostName -> PortID -> IO ()
+runPingServer gateway port =
+  withGateway "server" gateway port $ \gw -> do
+    -- Ask the gateway server to tell its configured name.
+    gwName <- askName gw
+    printf "PingServer now connectected to gateway '%s'\n" gwName
   
-  -- Forever wait for signals of type ping request ...
-  forever $ do
-    (from, Signal PingRequestSig lbs) <- receive gw $ Sel [PingRequestSig]
-    let request  = decode lbs -- Decode user level payload
-        response = mkTimestampedPingResponse request
-    printf "Got '%s' from '%s'\n" (show request) (show from)
+    -- Forever wait for signals of type ping request ...
+    forever $ do
+      (from, Signal PingRequestSig lbs) <- receive gw $ Sel [PingRequestSig]
+      let request  = decode lbs -- Decode user level payload
+          response = mkTimestampedPingResponse request
+      printf "Got '%s' from '%s'\n" (show request) (show from)
     
-    -- Send the response back to the requester.
-    sendWithSelf gw from $ Signal PingResponseSig (encode response)
+      -- Send the response back to the requester.
+      sendWithSelf gw from $ Signal PingResponseSig (encode response)
 
 -- | Simple LINX gateway program to implement a ping client sending
 -- ping request messages to a ping server every second. When the ping
 -- response is received the complete round trip time is calculated and
 -- printed on stdout.
-runPingClient :: String -> String -> String -> IO ()
-runPingClient name gateway gatewayPort = do
-  -- Register itself in the gateway. Getting a Gateway instance in
-  -- return.
-  gw     <- create name gateway (Service gatewayPort)
-  
-  -- Ask the gateway server to tell its configured name.
-  gwName <- askName gw
-  printf "PingClient now connected to gateway '%s'. Pid: '%s'\n" 
-         gwName (show $ self gw)
+runPingClient :: String -> HostName -> PortID -> IO ()
+runPingClient name gateway port =
+  withGateway name gateway port $ \gw -> do
+    -- Ask the gateway server to tell its configured name.
+    gwName <- askName gw
+    printf "PingClient now connected to gateway '%s'. Pid: '%s'\n" 
+           gwName (show $ self gw)
          
-  -- Ask for a LINX connection to the ping server named "server". Once
-  -- it's available enter the event loop.
-  eventLoop gw =<< discoverAndSupervise gw "server"
+    -- Ask for a LINX connection to the ping server named "server". Once
+    -- it's available enter the event loop.
+    eventLoop gw =<< discoverAndSupervise gw "server"
   
 eventLoop :: Gateway -> Pid -> IO ()
 eventLoop gw pid = do
