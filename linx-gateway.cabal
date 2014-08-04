@@ -1,5 +1,5 @@
 name:                linx-gateway
-version:             0.1.0.1
+version:             0.1.0.2
 synopsis:            Implementation of the Enea LINX gateway protocol.
 description:         Implementation of the Enea LINX gateway protocol. The 
                      protocol enables clients to communicate through a 
@@ -28,10 +28,10 @@ library
                        , Network.Linx.Gateway.Types
   other-modules:       Network.Linx.Gateway.BinaryInt32
                        , Network.Linx.Gateway.BinaryList
-  build-depends:       base >=4.6 && <4.7
+  build-depends:       base ==4.*
                        , binary >= 0.6 && <0.7.2
-                       , bytestring >= 0.10 && <0.10.1
-                       , network >= 2.4 && <2.5
+                       , bytestring >= 0.10
+                       , network >= 2.4
   hs-source-dirs:      src
   ghc-options:         -Wall
   default-language:    Haskell2010
@@ -39,12 +39,12 @@ library
 test-suite linx-gateway-tests
   type:                exitcode-stdio-1.0
   main-is:             TestMain.hs
-  build-depends:       base >=4.6 && <4.7
+  build-depends:       base ==4.*
                        , binary >= 0.6 && <0.7.2
-                       , bytestring >= 0.10 && <0.10.1
+                       , bytestring >= 0.10
                        , QuickCheck >= 2
-                       , test-framework >= 0.8 && <0.9		      
-                       , test-framework-quickcheck2 >= 0.3.0.2 && <0.3.0.3
+                       , test-framework >= 0.8
+                       , test-framework-quickcheck2 >= 0.3.0.2
   hs-source-dirs:      test, src
   other-modules:       Generators
                        , MessageProperties
@@ -55,11 +55,11 @@ test-suite linx-gateway-tests
 executable Ping
   main-is:             Ping.hs
   other-modules:       PingMessage
-  build-depends:       base >=4.6 && <4.7
+  build-depends:       base ==4.*
                        , binary >= 0.6 && <0.7.2
-                       , bytestring >= 0.10 && <0.10.1
-                       , network >= 2.4 && <2.5
-                       , time >= 1.4 && <1.5
+                       , bytestring >= 0.10
+                       , network >= 2.4
+                       , time >= 1.4
   hs-source-dirs:      examples, src
   ghc-options:         -Wall -fno-warn-unused-do-bind
   default-language:    Haskell2010
