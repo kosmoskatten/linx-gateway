@@ -29,7 +29,7 @@ library
   other-modules:       Network.Linx.Gateway.BinaryInt32
                        , Network.Linx.Gateway.BinaryList
   build-depends:       base ==4.*
-                       , binary >= 0.6 && <0.7.2
+                       , binary >= 0.8.3 && <0.9
                        , bytestring >= 0.10
                        , network >= 2.4
   hs-source-dirs:      src
@@ -40,7 +40,7 @@ test-suite linx-gateway-tests
   type:                exitcode-stdio-1.0
   main-is:             TestMain.hs
   build-depends:       base ==4.*
-                       , binary >= 0.6 && <0.7.2
+                       , binary >= 0.8.3 && <0.9
                        , bytestring >= 0.10
                        , QuickCheck >= 2
                        , test-framework >= 0.8
@@ -56,7 +56,7 @@ executable Ping
   main-is:             Ping.hs
   other-modules:       PingMessage
   build-depends:       base ==4.*
-                       , binary >= 0.6 && <0.7.2
+                       , binary >= 0.8.3 && <0.9
                        , bytestring >= 0.10
                        , network >= 2.4
                        , time >= 1.4

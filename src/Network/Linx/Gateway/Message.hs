@@ -32,7 +32,7 @@ module Network.Linx.Gateway.Message
        ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Data.Binary
+import Data.Binary hiding (putList)
 import Data.Binary.Get (runGet)
 import Data.Int (Int32)
 import GHC.Generics
