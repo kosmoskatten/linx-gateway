@@ -10,7 +10,7 @@ module Network.Linx.Gateway.Signal
        ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Data.Binary
+import Data.Binary hiding (putList)
 import Data.Binary.Get (getLazyByteString)
 import Data.Binary.Put (putLazyByteString)
 import qualified Data.ByteString.Lazy as LBS

@@ -4,7 +4,7 @@ module Network.Linx.Gateway.BinaryList
        ) where
 
 import Control.Monad (replicateM)
-import Data.Binary
+import Data.Binary hiding (putList)
 import Network.Linx.Gateway.Types
 
 putList :: Binary a => [a] -> Put
